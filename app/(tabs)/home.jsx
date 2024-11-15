@@ -1,4 +1,4 @@
-import { View, Text, Button, TouchableOpacity, Image } from 'react-native'
+import { View, Text, TouchableOpacity, Image } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import icons from '../../constants/icons'
@@ -6,7 +6,6 @@ import TableList from '../../components/TableList'
 
 const Home = () => {
     const [floor, setFloor] = useState(0)
-    const [isEditing, setIsEditing] = useState(false)
     const [selectedTable, setSelectedTable] = useState(null);
 
     const handleTableSelect = (tableData) => {
@@ -21,14 +20,6 @@ const Home = () => {
                 <View className='flex-1'>
                     <View className='flex flex-row h-[60px] items-center justify-start border-hairline'>
                         <Text className='ml-5 font-bold text-2xl'>Table List</Text>
-                        <TouchableOpacity
-                            className={`ml-[15px] rounded-xl ${isEditing ? 'bg-secondary' : 'bg-primary'} w-[120px] h-[40px] justify-center`}
-                            onPress={() => setIsEditing(!isEditing)}
-                        >
-                            <Text className='text-center'>
-                                {isEditing ? 'Done Editing' : 'Edit Layout'}
-                            </Text>
-                        </TouchableOpacity>
                         <TouchableOpacity className='absolute right-14 rounded-xl bg-primary w-[115px] h-[40px] justify-center'>
                             <Text className='text-center'>
                                 First Floor
@@ -44,7 +35,7 @@ const Home = () => {
                     </View>
                     <TableList
                         floor={floor}
-                        isEditing={isEditing}
+                        isEditing={false}
                         onTableSelect={handleTableSelect}
                     />
                 </View>

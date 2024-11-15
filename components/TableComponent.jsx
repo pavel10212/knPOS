@@ -1,14 +1,14 @@
 import { Text, PanResponder, Animated, TouchableOpacity } from 'react-native'
 import React, { useRef, useState } from 'react'
 
-const TableComponent = ({ 
-    number, 
-    persons, 
-    status, 
-    isEditing, 
-    position: savedPosition, 
+const TableComponent = ({
+    number,
+    persons,
+    status,
+    isEditing,
+    position: savedPosition,
     onPositionChange,
-    onTableSelect 
+    onTableSelect
 }) => {
     const position = useRef(new Animated.ValueXY(savedPosition || { x: 0, y: 0 })).current;
     const [dragging, setDragging] = useState(false)
@@ -63,8 +63,6 @@ const TableComponent = ({
     ).current;
 
     const shape = persons === 2 ? 'rounded-full' : 'rounded-lg'
-
-
 
     if (isEditing) {
         return (
