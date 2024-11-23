@@ -1,5 +1,6 @@
 import { Text, PanResponder, Animated, TouchableOpacity } from 'react-native'
 import React, { useRef, useState } from 'react'
+import { tableStore } from '../hooks/useStore';
 
 const TableComponent = ({
     number,
@@ -7,17 +8,15 @@ const TableComponent = ({
     status,
     isEditing,
     position: savedPosition,
-    onPositionChange,
-    onTableSelect
+    onPositionChange
 }) => {
     const position = useRef(new Animated.ValueXY(savedPosition || { x: 0, y: 0 })).current;
     const [dragging, setDragging] = useState(false)
-
-
+    const selectTable = tableStore((state) => state.selectTable);
 
     const ifClicked = () => {
-        if (!isEditing && onTableSelect) {
-            onTableSelect();
+        if (!isEditing) {
+            selectTable({ number, persons, status });
         }
     }
 

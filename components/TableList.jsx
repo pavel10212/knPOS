@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import TableComponent from './TableComponent'
 import StatusLegend from './StatusLegend'
 
-const TableList = ({ floor, isEditing, onTableSelect }) => {
+const TableList = ({ isEditing }) => {
     const [tablePositions, setTablePositions] = useState({});
     
     const tables = [
@@ -36,7 +36,6 @@ const TableList = ({ floor, isEditing, onTableSelect }) => {
                         isEditing={isEditing}
                         position={tablePositions[table.number]}
                         onPositionChange={handlePositionChange}
-                        onTableSelect={() => onTableSelect(table)}
                     />
                 ))}
             </View>

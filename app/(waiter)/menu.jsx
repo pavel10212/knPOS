@@ -3,6 +3,7 @@ import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import MenuItem from '../../components/MenuItem'
 import icons from '../../constants/icons'
+import { tableStore } from '../../hooks/useStore'
 
 const Menu = () => {
   const menuItems = [
@@ -15,6 +16,9 @@ const Menu = () => {
     { id: 7, title: 'Greek Salad', category: 'Salads', price: '13.99', image: icons.menu },
     { id: 8, title: 'Fish Tacos', category: 'Seafood', price: '14.99', image: icons.menu },
   ];
+
+  const { selectedTable } = tableStore();
+  console.log(selectedTable)
 
   return (
     <SafeAreaView className="flex-1">
