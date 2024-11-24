@@ -1,24 +1,23 @@
-import { Text, PanResponder, Animated, TouchableOpacity } from 'react-native'
-import React, { useRef, useState } from 'react'
+import { Text, TouchableOpacity, View, TouchableWithoutFeedback } from 'react-native'
+import React from 'react'
 import { tableStore } from '../hooks/useStore';
 
 const TableComponent = ({
     number,
     persons,
     status,
-    isEditing,
-    position: savedPosition,
-    onPositionChange
 }) => {
-    const position = useRef(new Animated.ValueXY(savedPosition || { x: 0, y: 0 })).current;
-    const [dragging, setDragging] = useState(false)
-    const selectTable = tableStore((state) => state.selectTable);
+    const { selectTable, selectedTable, dropdownTableNumber, setDropdownTable, updateTableStatus } = tableStore();
+    const isDropdownOpen = dropdownTableNumber === number;
 
-    const ifClicked = () => {
-        if (!isEditing) {
-            selectTable({ number, persons, status });
-        }
+    const ifLongPressed = () => {
+        setDropdownTable(isDropdownOpen ? null : number);
     }
+
+    const handleStatusChange = (newStatus) => {
+        updateTableStatus(number, newStatus);
+        setDropdownTable(null);
+    };
 
     const getBackgroundColor = () => {
         switch (status) {
@@ -28,64 +27,56 @@ const TableComponent = ({
             default: return 'bg-gray-500'
         }
     }
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: () => true,
-            onPanResponderGrant: () => {
-                position.setOffset({
-                    x: position.x._value,
-                    y: position.y._value
-                });
-                position.setValue({ x: 0, y: 0 });
-                setDragging(true);
-            },
-            onPanResponderMove: Animated.event(
-                [
-                    null,
-                    {
-                        dx: position.x,
-                        dy: position.y
-                    },
-                ],
-                { useNativeDriver: false }
-            ),
-            onPanResponderRelease: () => {
-                position.flattenOffset();
-                setDragging(false);
-                onPositionChange(number, {
-                    x: position.x._value,
-                    y: position.y._value
-                });
-            }
-        })
-    ).current;
 
     const shape = persons === 2 ? 'rounded-full' : 'rounded-lg'
 
-    if (isEditing) {
-        return (
-            <Animated.View
-                {...panResponder.panHandlers}
-                style={{
-                    transform: position.getTranslateTransform()
-                }}
-                className={`${getBackgroundColor()} p-4 ${shape} w-32 h-32 justify-center items-center`}
-            >
-                <Text className="text-white font-bold text-lg">Table {number}</Text>
-                <Text className="text-white text-sm">{persons} Persons</Text>
-            </Animated.View>
-        )
-    }
-
     return (
-        <TouchableOpacity
-            onPress={ifClicked}
-            className={`${getBackgroundColor()} p-4 ${shape} w-32 h-32 justify-center items-center`}
-        >
-            <Text className="text-white font-bold text-lg">Table {number}</Text>
-            <Text className="text-white text-sm">{persons} Persons</Text>
-        </TouchableOpacity>
+        <>
+            {isDropdownOpen && (
+                <TouchableWithoutFeedback onPress={() => setDropdownTable(null)}>
+                    <View className="absolute inset-0" />
+                </TouchableWithoutFeedback>
+            )}
+            <View>
+                <TouchableOpacity
+                    onPress={(e) => {
+                        e.stopPropagation();
+                        selectTable({ number, persons, status });
+                    }}
+                    onLongPress={(e) => {
+                        e.stopPropagation();
+                        ifLongPressed();
+                    }}
+                    className={`${getBackgroundColor()} p-4 ${shape} w-32 h-32 justify-center items-center`}
+                >
+                    <Text className="text-white font-bold text-lg">Table {number}</Text>
+                    <Text className="text-white text-sm">{persons} Persons</Text>
+                </TouchableOpacity>
+
+                {isDropdownOpen && (
+                    <View className="absolute top-32 left-0 w-32 bg-white rounded-lg shadow-lg border border-gray-200 mt-3">
+                        <TouchableOpacity
+                            className="p-2"
+                            onPress={() => handleStatusChange('available')}
+                        >
+                            <Text>Available</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            className="p-2"
+                            onPress={() => handleStatusChange('reserved')}
+                        >
+                            <Text>Reserved</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            className="p-2"
+                            onPress={() => handleStatusChange('unavailable')}
+                        >
+                            <Text>Unavailable</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+        </>
     )
 }
 

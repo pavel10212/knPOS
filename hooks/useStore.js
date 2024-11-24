@@ -9,6 +9,7 @@ export const loginStore = create((set) => ({
 
 export const tableStore = create((set) => ({
   selectedTable: null,
+  dropdownTableNumber: null, 
   selectTable: (table) =>
     set({
       selectedTable: {
@@ -40,11 +41,53 @@ export const tableStore = create((set) => ({
           },
           { name: "Coca Cola", quantity: 2, notes: "No Ice", price: 2.99 },
           { name: "Water", quantity: 1, notes: "No Ice", price: 0.99 },
-          { name: "Apple Pie", quantity: 1, notes: "Extra Caramel", price: 5.99 },
-          { name: "Chocolate Cake", quantity: 1, notes: "Extra Chocolate", price: 6.99 },
-          { name: "Ice Cream", quantity: 1, notes: "Extra Sprinkles", price: 4.99 },
+          {
+            name: "Apple Pie",
+            quantity: 1,
+            notes: "Extra Caramel",
+            price: 5.99,
+          },
+          {
+            name: "Chocolate Cake",
+            quantity: 1,
+            notes: "Extra Chocolate",
+            price: 6.99,
+          },
+          {
+            name: "Ice Cream",
+            quantity: 1,
+            notes: "Extra Sprinkles",
+            price: 4.99,
+          },
           { name: "Coffee", quantity: 1, notes: "Extra Sugar", price: 1.99 },
         ],
       },
     }),
+  setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }), // Add this method
+  updateTableStatus: (tableNumber, newStatus) => 
+    set((state) => {
+      if (state.selectedTable?.number === tableNumber) {
+        return {
+          selectedTable: { ...state.selectedTable, status: newStatus }
+        };
+      }
+      return {};
+    }),
+  tables: [
+    { number: 1, persons: 2, status: 'unavailable' },
+    { number: 2, persons: 4, status: 'available' },
+    { number: 3, persons: 2, status: 'reserved' },
+    { number: 4, persons: 4, status: 'available' },
+    { number: 5, persons: 2, status: 'unavailable' },
+    { number: 6, persons: 4, status: 'available' },
+    { number: 7, persons: 4, status: 'reserved' },
+    { number: 8, persons: 2, status: 'available' },
+    { number: 9, persons: 4, status: 'unavailable' }
+  ],
+  updateTableStatus: (tableNumber, newStatus) => 
+    set((state) => ({
+      tables: state.tables.map(table => 
+        table.number === tableNumber ? { ...table, status: newStatus } : table
+      )
+    })),
 }));

@@ -1,4 +1,4 @@
-import { View, FlatList } from 'react-native'
+import { View, FlatList, Text } from 'react-native'
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import MenuItem from '../../components/MenuItem'
@@ -22,6 +22,11 @@ const Menu = () => {
 
   return (
     <SafeAreaView className="flex-1">
+      <Text
+        className='ml-10 text-2xl font-bold mt-5'
+      >
+        Order for table: {selectedTable.number}
+      </Text>
       <FlatList
         data={menuItems}
         renderItem={({ item }) => (
