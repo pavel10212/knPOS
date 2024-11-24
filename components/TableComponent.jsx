@@ -6,8 +6,9 @@ const TableComponent = ({
     number,
     persons,
     status,
+    reservation
 }) => {
-    const { selectTable, selectedTable, dropdownTableNumber, setDropdownTable, updateTableStatus } = tableStore();
+    const { selectTable, dropdownTableNumber, setDropdownTable, updateTableStatus, handleReservation } = tableStore();
     const isDropdownOpen = dropdownTableNumber === number;
 
     const ifLongPressed = () => {
@@ -15,6 +16,10 @@ const TableComponent = ({
     }
 
     const handleStatusChange = (newStatus) => {
+        if (newStatus === 'reserved') {
+            handleReservation(number);
+            return;
+        }
         updateTableStatus(number, newStatus);
         setDropdownTable(null);
     };
@@ -41,20 +46,33 @@ const TableComponent = ({
                 <TouchableOpacity
                     onPress={(e) => {
                         e.stopPropagation();
-                        selectTable({ number, persons, status });
+                        selectTable({ number, persons, status, reservation });
                     }}
                     onLongPress={(e) => {
                         e.stopPropagation();
                         ifLongPressed();
                     }}
-                    className={`${getBackgroundColor()} p-4 ${shape} w-32 h-32 justify-center items-center`}
+                    className={`${getBackgroundColor()} p-4 ${shape} w-40 h-40 justify-center items-center relative`}
                 >
-                    <Text className="text-white font-bold text-lg">Table {number}</Text>
-                    <Text className="text-white text-sm">{persons} Persons</Text>
+                    <View className="absolute top-6 left-0 right-0">
+                        <Text className="text-white font-bold text-xl text-center">Table {number}</Text>
+                        <Text className="text-white text-base text-center mt-1">{persons} Persons</Text>
+                    </View>
+
+                    {status === 'reserved' && reservation && (
+                        <View className="absolute bottom-4 left-3 right-3 rounded-md p-2">
+                            <Text className="text-white text-[13px] text-center font-semibold" numberOfLines={1}>
+                                {reservation.customerName}
+                            </Text>
+                            <Text className="text-white text-[12px] text-center mt-0.5" numberOfLines={1}>
+                                {reservation.time}
+                            </Text>
+                        </View>
+                    )}
                 </TouchableOpacity>
 
                 {isDropdownOpen && (
-                    <View className="absolute top-32 left-0 w-32 bg-white rounded-lg shadow-lg border border-gray-200 mt-3">
+                    <View className="absolute top-40 left-0 w-40 bg-white rounded-lg shadow-lg border border-gray-200 mt-3">
                         <TouchableOpacity
                             className="p-2"
                             onPress={() => handleStatusChange('available')}
@@ -63,7 +81,10 @@ const TableComponent = ({
                         </TouchableOpacity>
                         <TouchableOpacity
                             className="p-2"
-                            onPress={() => handleStatusChange('reserved')}
+                            onPress={() => {
+                                setDropdownTable(null);
+                                handleStatusChange('reserved')
+                            }}
                         >
                             <Text>Reserved</Text>
                         </TouchableOpacity>

@@ -91,6 +91,12 @@ export default function TabsLayout() {
                         />
                     )
                 }} />
+                <Tabs.Screen name="payment" options={{
+                    title: "Payment",
+                    headerShadowVisible: false,
+                    href: null,
+                    tabBarStyle: { display: 'none' }, 
+                }} />
             </Tabs>
         </SafeAreaView>
     );

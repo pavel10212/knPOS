@@ -7,6 +7,9 @@ import search from "../assets/icons/search.png";
 import calendar from "../assets/icons/calendar.png";
 import plus from "../assets/icons/plus.png";
 import table from "../assets/icons/table.png";
+import clock from "../assets/icons/clock.png";
+import money from "../assets/icons/money.png";
+import creditcard from "../assets/icons/creditcard.png";
 
 export default {
   menu,
@@ -18,4 +21,7 @@ export default {
   calendar,
   plus,
   table,
+  clock,
+  money,
+  creditcard,
 };

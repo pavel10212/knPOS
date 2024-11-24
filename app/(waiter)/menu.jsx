@@ -25,7 +25,7 @@ const Menu = () => {
       <Text
         className='ml-10 text-2xl font-bold mt-5'
       >
-        Order for table: {selectedTable.number}
+        Order for table: {selectedTable?.number}
       </Text>
       <FlatList
         data={menuItems}

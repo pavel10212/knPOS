@@ -74,15 +74,15 @@ export const tableStore = create((set) => ({
       return {};
     }),
   tables: [
-    { number: 1, persons: 2, status: 'unavailable' },
-    { number: 2, persons: 4, status: 'available' },
-    { number: 3, persons: 2, status: 'reserved' },
-    { number: 4, persons: 4, status: 'available' },
-    { number: 5, persons: 2, status: 'unavailable' },
-    { number: 6, persons: 4, status: 'available' },
-    { number: 7, persons: 4, status: 'reserved' },
-    { number: 8, persons: 2, status: 'available' },
-    { number: 9, persons: 4, status: 'unavailable' }
+    { number: 1, persons: 2, status: 'unavailable', reservation: null },
+    { number: 2, persons: 4, status: 'available', reservation: null },
+    { number: 3, persons: 2, status: 'reserved', reservation: null },
+    { number: 4, persons: 4, status: 'available', reservation: null },
+    { number: 5, persons: 2, status: 'unavailable', reservation: null },
+    { number: 6, persons: 4, status: 'available', reservation: null },
+    { number: 7, persons: 4, status: 'reserved', reservation: null },
+    { number: 8, persons: 2, status: 'available', reservation: null },
+    { number: 9, persons: 4, status: 'unavailable', reservation: null }
   ],
   updateTableStatus: (tableNumber, newStatus) => 
     set((state) => ({
@@ -90,4 +90,31 @@ export const tableStore = create((set) => ({
         table.number === tableNumber ? { ...table, status: newStatus } : table
       )
     })),
+  updateTableReservation: (tableNumber, reservationData) => 
+    set((state) => {
+      const updatedTables = state.tables.map(table => 
+        table.number === tableNumber 
+          ? { 
+              ...table, 
+              status: 'reserved',
+              reservation: {
+                customerName: reservationData.customerName,
+                time: reservationData.time,
+                description: reservationData.description,
+                reservedAt: reservationData.reservedAt
+              }
+            } 
+          : table
+      );
+      
+      return {
+        tables: updatedTables,
+        selectedTable: updatedTables.find(t => t.number === tableNumber)
+      };
+    }),
+  reservationModal: { visible: false, tableNumber: null },
+  setReservationModal: (modalState) => set({ reservationModal: modalState }),
+  handleReservation: (tableNumber) => set({ 
+    reservationModal: { visible: true, tableNumber } 
+  }),
 }));
