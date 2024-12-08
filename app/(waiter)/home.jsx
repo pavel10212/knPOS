@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Image, FlatList } from 'react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import icons from '../../constants/icons'
 import TableList from '../../components/TableList'
@@ -10,6 +10,7 @@ import ReservedModal from '../../components/ReservedModal'
 
 const Home = () => {
     const { selectedTable, setDropdownTable, updateTableStatus, reservationModal, setReservationModal } = tableStore();
+    const { isQrModalVisible, setQrModalVisible } = useState(false);
 
     const handleReservation = (tableNumber) => {
         setReservationModal({ visible: true, tableNumber });
@@ -21,6 +22,7 @@ const Home = () => {
             order={item}
         />
     );
+
 
     return (
         <SafeAreaView className='flex-1 bg-white'>

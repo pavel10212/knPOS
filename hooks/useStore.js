@@ -8,113 +8,230 @@ export const loginStore = create((set) => ({
 }));
 
 export const tableStore = create((set) => ({
-  selectedTable: null,
-  dropdownTableNumber: null, 
-  selectTable: (table) =>
-    set({
-      selectedTable: {
-        ...table,
-        orders: [
-          {
-            name: "Chicken Wings",
-            quantity: 2,
-            notes: "Not Spicy",
-            price: 15.99,
-          },
-          {
-            name: "Chicken Salad",
-            quantity: 1,
-            notes: "Extra Dressing",
-            price: 12.99,
-          },
-          {
-            name: "Cheese Burger Beef",
-            quantity: 1,
-            notes: "No Onions",
-            price: 16.99,
-          },
-          {
-            name: "Pasta Carbonara",
-            quantity: 1,
-            notes: "Extra Cheese",
-            price: 17.99,
-          },
-          { name: "Coca Cola", quantity: 2, notes: "No Ice", price: 2.99 },
-          { name: "Water", quantity: 1, notes: "No Ice", price: 0.99 },
-          {
-            name: "Apple Pie",
-            quantity: 1,
-            notes: "Extra Caramel",
-            price: 5.99,
-          },
-          {
-            name: "Chocolate Cake",
-            quantity: 1,
-            notes: "Extra Chocolate",
-            price: 6.99,
-          },
-          {
-            name: "Ice Cream",
-            quantity: 1,
-            notes: "Extra Sprinkles",
-            price: 4.99,
-          },
-          { name: "Coffee", quantity: 1, notes: "Extra Sugar", price: 1.99 },
-        ],
-      },
-    }),
-  setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }), // Add this method
-  updateTableStatus: (tableNumber, newStatus) => 
-    set((state) => {
-      if (state.selectedTable?.number === tableNumber) {
-        return {
-          selectedTable: { ...state.selectedTable, status: newStatus }
-        };
-      }
-      return {};
-    }),
+  // Table State
   tables: [
-    { number: 1, persons: 2, status: 'unavailable', reservation: null },
-    { number: 2, persons: 4, status: 'available', reservation: null },
-    { number: 3, persons: 2, status: 'reserved', reservation: null },
-    { number: 4, persons: 4, status: 'available', reservation: null },
-    { number: 5, persons: 2, status: 'unavailable', reservation: null },
-    { number: 6, persons: 4, status: 'available', reservation: null },
-    { number: 7, persons: 4, status: 'reserved', reservation: null },
-    { number: 8, persons: 2, status: 'available', reservation: null },
-    { number: 9, persons: 4, status: 'unavailable', reservation: null }
+    {
+      number: 1,
+      persons: 2,
+      status: "unavailable",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 2,
+      persons: 4,
+      status: "available",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 3,
+      persons: 2,
+      status: "reserved",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 4,
+      persons: 4,
+      status: "available",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 5,
+      persons: 2,
+      status: "unavailable",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 6,
+      persons: 4,
+      status: "available",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 7,
+      persons: 4,
+      status: "reserved",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 8,
+      persons: 2,
+      status: "available",
+      reservation: null,
+      orders: [],
+    },
+    {
+      number: 9,
+      persons: 4,
+      status: "unavailable",
+      reservation: null,
+      orders: [],
+    },
   ],
-  updateTableStatus: (tableNumber, newStatus) => 
-    set((state) => ({
-      tables: state.tables.map(table => 
-        table.number === tableNumber ? { ...table, status: newStatus } : table
-      )
-    })),
-  updateTableReservation: (tableNumber, reservationData) => 
+  selectedTable: null,
+  dropdownTableNumber: null,
+  reservationModal: { visible: false, tableNumber: null },
+  paymentHistory: [],
+
+  // Table Selection Actions
+  selectTable: (table) =>
     set((state) => {
-      const updatedTables = state.tables.map(table => 
-        table.number === tableNumber 
-          ? { 
-              ...table, 
-              status: 'reserved',
+      const existingTable = state.tables.find((t) => t.number === table.number);
+      return {
+        selectedTable: {
+          ...table,
+          orders: existingTable?.orders || [],
+        },
+      };
+    }),
+  setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
+  updateSelectedTable: (table) => set({ selectedTable: table }),
+
+  // Table Status Management
+  updateTableStatus: (tableNumber, newStatus) =>
+    set((state) => ({
+      tables: state.tables.map((table) =>
+        table.number === tableNumber ? { ...table, status: newStatus } : table
+      ),
+      selectedTable:
+        state.selectedTable?.number === tableNumber
+          ? { ...state.selectedTable, status: newStatus }
+          : state.selectedTable,
+    })),
+
+  // Reservation Management
+  setReservationModal: (modalState) => set({ reservationModal: modalState }),
+  handleReservation: (tableNumber) =>
+    set({ reservationModal: { visible: true, tableNumber } }),
+  updateTableReservation: (tableNumber, reservationData) =>
+    set((state) => {
+      const updatedTables = state.tables.map((table) =>
+        table.number === tableNumber
+          ? {
+              ...table,
+              status: "reserved",
               reservation: {
                 customerName: reservationData.customerName,
                 time: reservationData.time,
                 description: reservationData.description,
-                reservedAt: reservationData.reservedAt
-              }
-            } 
+                reservedAt: reservationData.reservedAt,
+              },
+            }
           : table
       );
-      
+
       return {
         tables: updatedTables,
-        selectedTable: updatedTables.find(t => t.number === tableNumber)
+        selectedTable: updatedTables.find((t) => t.number === tableNumber),
       };
     }),
-  reservationModal: { visible: false, tableNumber: null },
-  setReservationModal: (modalState) => set({ reservationModal: modalState }),
-  handleReservation: (tableNumber) => set({ 
-    reservationModal: { visible: true, tableNumber } 
-  }),
+
+  // Order Management
+  updateSelectedTableOrders: (orders) =>
+    set((state) => ({
+      selectedTable: state.selectedTable
+        ? { ...state.selectedTable, orders }
+        : null,
+    })),
+
+  updateOrderNotes: (tableNumber, orderName, index, notes) =>
+    set((state) => {
+      const updatedTables = state.tables.map((table) => {
+        if (table.number === tableNumber) {
+          const updatedOrders = table.orders.map((order) => {
+            if (order.name === orderName) {
+              const updatedIndividualNotes = [...(order.individualNotes || Array(order.quantity).fill(''))];
+              updatedIndividualNotes[index] = notes;
+              return {
+                ...order,
+                individualNotes: updatedIndividualNotes,
+              };
+            }
+            return order;
+          });
+          return { ...table, orders: updatedOrders };
+        }
+        return table;
+      });
+
+      return {
+        tables: updatedTables,
+        selectedTable: updatedTables.find((t) => t.number === tableNumber),
+      };
+    }),
+
+  addOrderToTable: (tableNumber, order) =>
+    set((state) => {
+      const existingOrders = state.selectedTable?.orders || [];
+      const existingOrder = existingOrders.find((o) => o.name === order.name);
+
+      let updatedOrders;
+      if (existingOrder) {
+        updatedOrders = existingOrders.map((o) => {
+          if (o.name === order.name) {
+            const newQuantity = o.quantity + order.quantity;
+            if (newQuantity <= 0) return null;
+            
+            let individualNotes = [...(o.individualNotes || Array(o.quantity).fill(''))];
+            if (order.quantity > 0) {
+              individualNotes = [...individualNotes, ...Array(order.quantity).fill('')];
+            } else {
+              individualNotes = individualNotes.slice(0, newQuantity);
+            }
+            
+            return {
+              ...o,
+              quantity: newQuantity,
+              individualNotes,
+            };
+          }
+          return o;
+        }).filter(Boolean);
+      } else {
+        updatedOrders = [...existingOrders, {
+          ...order,
+          individualNotes: Array(order.quantity).fill(''),
+        }];
+      }
+      const updatedTables = state.tables.map((table) => {
+        if (table.number === tableNumber) {
+          return {
+            ...table,
+            orders: updatedOrders,
+          };
+        }
+        return table;
+      });
+
+      return {
+        selectedTable: {
+          ...state.selectedTable,
+          orders: updatedOrders,
+        },
+        tables: updatedTables,
+      };
+    }),
+
+  // Table Operations
+  clearTable: (tableNumber) =>
+    set((state) => ({
+      selectedTable: null,
+      tables: state.tables.map((table) =>
+        table.number === tableNumber
+          ? { ...table, status: "available", orders: [] }
+          : table
+      ),
+    })),
+
+  // Payment Management
+  addPaymentHistory: (payment) =>
+    set((state) => ({
+      paymentHistory: [...state.paymentHistory, payment],
+    })),
 }));

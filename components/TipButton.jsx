@@ -1,11 +1,13 @@
 import { TouchableOpacity, Text } from "react-native";
 
-const TipButton = ({ percentage, selected, onSelect }) => (
-    <TouchableOpacity 
+const TipButton = ({ percentage, selected, onSelect, text }) => (
+    <TouchableOpacity
         onPress={() => onSelect(percentage)}
-        className={`bg-[#EAF0F0] p-2 rounded-lg ${selected ? 'bg-[#D1D7D7]' : ''}`}
+        className={`py-2 px-4 rounded-lg ${selected ? 'bg-primary' : 'bg-[#EAF0F0]'}`}
     >
-        <Text className='text-black font-semibold'>{percentage}%</Text>
+        <Text className={`${selected ? 'text-white' : 'text-gray-600'}`}>
+            {text || `${percentage}%`}
+        </Text>
     </TouchableOpacity>
 );
 

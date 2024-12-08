@@ -1,18 +1,26 @@
-import { View, Text, FlatList, TouchableOpacity, Image, TextInput } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, Image, TextInput, Alert } from 'react-native'
 import { tableStore } from '../../hooks/useStore'
 import { useState, useMemo } from 'react'
 import icons from '../../constants/icons'
 import PayItem from '../../components/PayItem'
 import TipButton from '../../components/TipButton'
 import PaymentMethod from '../../components/PaymentMethod'
-
+import { router } from 'expo-router'
 
 const Payment = () => {
-    const { selectedTable } = tableStore();
+    const { selectedTable, updateSelectedTableOrders, updateTableStatus, clearTable, addPaymentHistory } = tableStore();
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [tipPercentage, setTipPercentage] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [cashReceived, setCashReceived] = useState(0);
+
+    if (!selectedTable) {
+        return (
+            <View className="flex-1 justify-center items-center">
+                <Text>Please select a table first</Text>
+            </View>
+        );
+    }
 
     const calculations = useMemo(() => {
         const subtotal = selectedTable?.orders?.reduce((sum, item) =>
@@ -30,6 +38,64 @@ const Payment = () => {
         };
     }, [selectedTable, tipPercentage, discount]);
 
+    const finishPayment = () => {
+        if (!selectedMethod) {
+            Alert.alert('Error', 'Please select a payment method');
+            return;
+        }
+
+        if (selectedMethod === 'cash' && cashReceived < total) {
+            Alert.alert('Error', 'Insufficient cash received');
+            return;
+        }
+
+        const paymentDetails = {
+            tableNumber: selectedTable.number,
+            orders: [...selectedTable.orders],
+            payment: {
+                method: selectedMethod,
+                subtotal,
+                tip,
+                serviceCharge,
+                discount,
+                vat,
+                total,
+                cashReceived: selectedMethod === 'cash' ? cashReceived : total,
+                timestamp: new Date().toISOString()
+            }
+        };
+
+        addPaymentHistory(paymentDetails);
+        clearTable(selectedTable.number);
+        router.push('/home');
+    }
+
+    const deleteItem = (item) => {
+        const updatedOrders = selectedTable.orders.filter(order => order !== item);
+        updateSelectedTableOrders(updatedOrders);
+    }
+
+    const addItem = (item) => {
+        const updatedOrders = selectedTable.orders.map(order =>
+            order.name === item.name
+                ? { ...order, quantity: order.quantity + 1 }
+                : order
+        );
+        updateSelectedTableOrders(updatedOrders);
+    }
+
+    const subtractItem = (item) => {
+        if (item.quantity <= 1) return;
+
+        const updatedOrders = selectedTable.orders.map(order =>
+            order.name === item.name
+                ? { ...order, quantity: order.quantity - 1 }
+                : order
+        );
+        updateSelectedTableOrders(updatedOrders);
+    }
+
+
     const { subtotal, tip, serviceCharge, discountAmount, vat, total } = calculations;
 
     return (
@@ -43,23 +109,28 @@ const Payment = () => {
                     </View>
                     <View className='flex-1 m-5 rounded-lg'>
                         <View className='flex flex-row justify-between rounded-t-lg p-4 bg-[#EAF0F0]'>
-                            <Text className='font-semibold w-[40%]'>Item</Text>
-                            <Text className='font-semibold w-[20%] text-center'>Price</Text>
-                            <Text className='font-semibold w-[20%] text-center'>QTY</Text>
-                            <Text className='font-semibold w-[20%] text-right'>Subtotal</Text>
+                            <Text className='font-semibold w-[30%]'>Item</Text>
+                            <Text className='font-semibold w-[15%] text-center'>Price</Text>
+                            <Text className='font-semibold w-[25%] text-center'>Quantity</Text>
+                            <Text className='font-semibold w-[15%] text-right'>Subtotal</Text>
+                            <Text className='font-semibold w-[15%] text-center'>Actions</Text>
                         </View>
                         <FlatList
                             data={selectedTable?.orders || []}
-                            renderItem={({ item }) => <PayItem item={item} />}
+                            renderItem={({ item }) => <PayItem
+                                addItem={addItem}
+                                subtractItem={subtractItem}
+                                deleteItem={deleteItem}
+                                item={item} />}
                             keyExtractor={(_, index) => index.toString()}
                         />
                     </View>
                 </View>
 
                 {/* Right side - Payment Options */}
-                <View className='w-[450px] relative'> {/* Removed p-4 and added relative */}
-                    <View className='p-4 pb-20'> {/* Added pb-20 to create space for fixed button */}
-                        <View className='mb-4'> {/* Reduced margin bottom from 8 to 4 */}
+                <View className='w-[450px] relative'>
+                    <View className='p-4 pb-20'>
+                        <View className='mb-4'>
                             <Text className='text-2xl font-semibold mb-4'>Payable Amount</Text>
                             <Text className='text-xl font-medium text-[#D89F65]'>${total.toFixed(2)}</Text>
 
@@ -67,6 +138,12 @@ const Payment = () => {
                             <View className='border-t border-dashed mt-4' />
                             <View className='mt-4 flex flex-row items-center justify-start gap-4'>
                                 <Text className='font-semibold'>Add Tip</Text>
+                                <TipButton
+                                    percentage={0}
+                                    selected={tipPercentage === 0}
+                                    onSelect={setTipPercentage}
+                                    text="No Tip"
+                                />
                                 {[5, 10, 15, 20].map(percentage => (
                                     <TipButton
                                         key={percentage}
@@ -156,7 +233,9 @@ const Payment = () => {
 
                     {/* Action Buttons */}
                     <View className='absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200'>
-                        <TouchableOpacity className='bg-primary p-4 rounded-lg'>
+                        <TouchableOpacity
+                            onPress={() => finishPayment()}
+                            className='bg-primary p-4 rounded-lg'>
                             <Text className='text-white text-center font-bold text-lg'>
                                 Complete
                             </Text>

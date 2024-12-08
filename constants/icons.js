@@ -10,6 +10,9 @@ import table from "../assets/icons/table.png";
 import clock from "../assets/icons/clock.png";
 import money from "../assets/icons/money.png";
 import creditcard from "../assets/icons/creditcard.png";
+import trash from "../assets/icons/trash.png";
+import minus from "../assets/icons/minus.png";
+import dropdown from "../assets/icons/dropdown.png";
 
 export default {
   menu,
@@ -24,4 +27,7 @@ export default {
   clock,
   money,
   creditcard,
+  trash,
+  minus,
+  dropdown,
 };
