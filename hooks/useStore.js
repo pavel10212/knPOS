@@ -33,7 +33,9 @@ export const tableStore = create((set) => ({
   updateTableStatus: (tableNumber, newStatus) =>
     set((state) => ({
       tables: state.tables.map((table) =>
-        table.table_num === tableNumber ? { ...table, status: newStatus } : table
+        table.table_num === tableNumber
+          ? { ...table, status: newStatus }
+          : table
       ),
       selectedTable:
         state.selectedTable?.table_num === tableNumber
@@ -214,31 +216,39 @@ export const tableStore = create((set) => ({
       const cachedTables = await AsyncStorage.getItem("cached_tables");
       if (cachedTables) {
         const parsedTables = JSON.parse(cachedTables);
-        set({ tables: parsedTables.map(table => ({
-          ...table,
-          location: typeof table.location === 'string' ? 
-            JSON.parse(table.location) : table.location
-        })) });
+        set({
+          tables: parsedTables.map((table) => ({
+            ...table,
+            location:
+              typeof table.location === "string"
+                ? JSON.parse(table.location)
+                : table.location,
+          })),
+        });
       }
 
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
       );
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch tables");
       }
-      
-      const data = await response.json();
-      const processedData = data.map(table => ({
-        ...table,
-        location: typeof table.location === 'string' ? 
-          JSON.parse(table.location) : table.location
-      }));
-      
-      set({ tables: processedData });
-      await AsyncStorage.setItem("cached_tables", JSON.stringify(processedData));
 
+      const data = await response.json();
+      const processedData = data.map((table) => ({
+        ...table,
+        location:
+          typeof table.location === "string"
+            ? JSON.parse(table.location)
+            : table.location,
+      }));
+
+      set({ tables: processedData });
+      await AsyncStorage.setItem(
+        "cached_tables",
+        JSON.stringify(processedData)
+      );
     } catch (error) {
       console.error("Error fetching tables:", error);
       set({ tables: [] });

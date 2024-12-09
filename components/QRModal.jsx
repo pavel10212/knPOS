@@ -13,9 +13,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
       }
 
       try {
-        console.log('Fetching token for table:', table_num);
         const url = `http://${process.env.EXPO_PUBLIC_IP}:3000/generate-token`;
-        console.log('Fetch URL:', url);
 
         const response = await fetch(url, {
           method: "POST",
@@ -25,7 +23,6 @@ const QRModal = ({ visible, onClose, table_num }) => {
           body: JSON.stringify({ table_num }),
         });
 
-        console.log('Response status:', response.status);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -34,7 +31,6 @@ const QRModal = ({ visible, onClose, table_num }) => {
         }
 
         const data = await response.json();
-        console.log('Received data:', data);
 
         if (!data.url) {
           throw new Error('No URI in response');
