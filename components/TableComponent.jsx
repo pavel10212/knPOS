@@ -3,37 +3,50 @@ import React from 'react'
 import { tableStore } from '../hooks/useStore';
 
 const TableComponent = ({
-    number,
-    persons,
+    table_num,
+    capacity,
     status,
-    reservation
+    reservation_details,
+    location,
+    rotation
 }) => {
+    const SCALE_FACTOR = 0.8;
+    const OFFSET_X = -50;
+    const OFFSET_Y = 50;
     const { selectTable, dropdownTableNumber, setDropdownTable, updateTableStatus, handleReservation } = tableStore();
-    const isDropdownOpen = dropdownTableNumber === number;
+    const isDropdownOpen = dropdownTableNumber === table_num;
 
     const ifLongPressed = () => {
-        setDropdownTable(isDropdownOpen ? null : number);
+        setDropdownTable(isDropdownOpen ? null : table_num);
     }
 
     const handleStatusChange = (newStatus) => {
         if (newStatus === 'reserved') {
-            handleReservation(number);
+            handleReservation(table_num);
             return;
         }
-        updateTableStatus(number, newStatus);
+        updateTableStatus(table_num, newStatus);
         setDropdownTable(null);
     };
 
     const getBackgroundColor = () => {
         switch (status) {
-            case 'unavailable': return 'bg-red-700'
-            case 'available': return 'bg-green-600'
-            case 'reserved': return 'bg-yellow-500'
+            case 'Unavailable': return 'bg-red-700'
+            case 'Available': return 'bg-green-600'
+            case 'Reserved': return 'bg-yellow-500'
             default: return 'bg-gray-500'
         }
     }
 
-    const shape = persons === 2 ? 'rounded-full' : 'rounded-lg'
+    const getTableSize = () => {
+        switch (capacity) {
+            case 2: return 'w-32 h-32'  
+            case 6: return 'w-48 h-32' 
+            default: return 'w-32 h-32'
+        }
+    }
+
+    const shape = capacity === 2 ? 'rounded-full' : 'rounded-lg'
 
     return (
         <>
@@ -42,37 +55,39 @@ const TableComponent = ({
                     <View className="absolute inset-0" />
                 </TouchableWithoutFeedback>
             )}
-            <View>
+            <View style={{
+                position: 'absolute',
+                left: ((location?.x || 0) * SCALE_FACTOR) + OFFSET_X,
+                top: ((location?.y || 0) * SCALE_FACTOR) + OFFSET_Y,
+                transform: [{ rotate: `${rotation || 0}deg` }]
+            }}>
                 <TouchableOpacity
                     onPress={(e) => {
                         e.stopPropagation();
-                        selectTable({ number, persons, status, reservation });
+                        selectTable({ table_num, capacity, status, reservation_details });
                     }}
                     onLongPress={(e) => {
                         e.stopPropagation();
                         ifLongPressed();
                     }}
-                    className={`${getBackgroundColor()} p-4 ${shape} w-40 h-40 justify-center items-center relative`}
+                    className={`${getBackgroundColor()} ${getTableSize()} ${shape} justify-center items-center relative border-2 border-white`}
                 >
-                    <View className="absolute top-6 left-0 right-0">
-                        <Text className="text-white font-bold text-xl text-center">Table {number}</Text>
-                        <Text className="text-white text-base text-center mt-1">{persons} Persons</Text>
+                    <View className="absolute inset-0 flex justify-center items-center">
+                        <Text className="text-white font-semibold text-base text-center">Table {table_num}</Text>
+                        <Text className="text-white text-sm text-center">{capacity} Persons</Text>
                     </View>
 
-                    {status === 'reserved' && reservation && (
-                        <View className="absolute bottom-4 left-3 right-3 rounded-md p-2">
-                            <Text className="text-white text-[13px] text-center font-semibold" numberOfLines={1}>
-                                {reservation.customerName}
-                            </Text>
-                            <Text className="text-white text-[12px] text-center mt-0.5" numberOfLines={1}>
-                                {reservation.time}
+                    {status === 'Reserved' && reservation_details && (
+                        <View className="absolute bottom-1 left-2 right-2 rounded-sm">
+                            <Text className="text-white text-xs text-center" numberOfLines={1}>
+                                {reservation_details}
                             </Text>
                         </View>
                     )}
                 </TouchableOpacity>
 
                 {isDropdownOpen && (
-                    <View className="absolute top-40 left-0 w-40 bg-white rounded-lg shadow-lg border border-gray-200 mt-3">
+                    <View className={`absolute ${getTableSize() === 'w-24 h-24' ? 'top-24' : 'top-32'} left-0 w-40 bg-white rounded-lg shadow-lg border border-gray-200 mt-3 z-50`}>
                         <TouchableOpacity
                             className="p-2"
                             onPress={() => handleStatusChange('available')}

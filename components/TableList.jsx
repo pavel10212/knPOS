@@ -1,19 +1,11 @@
-import { View, ScrollView, Pressable } from 'react-native'
-import React, { useState } from 'react'
+import { View, Pressable } from 'react-native'
+import React from 'react'
 import TableComponent from './TableComponent'
 import StatusLegend from './StatusLegend'
 import { tableStore } from '../hooks/useStore'
 
 const TableList = ({ isEditing, onReserve }) => {
-    const [tablePositions, setTablePositions] = useState({});
     const { tables, setDropdownTable } = tableStore();
-
-    const handlePositionChange = (tableNumber, newPosition) => {
-        setTablePositions(prev => ({
-            ...prev,
-            [tableNumber]: newPosition
-        }));
-    };
 
     return (
         <Pressable
@@ -21,20 +13,18 @@ const TableList = ({ isEditing, onReserve }) => {
             className="flex-1 bg-gray-100"
         >
             <StatusLegend />
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
-                <View className="flex flex-row flex-wrap gap-4">
+            <View className="flex-1">
+                <View className="relative flex-1">
                     {tables.map((table) => (
                         <TableComponent
-                            key={table.number}
+                            key={table.table_id}
                             {...table}
                             isEditing={isEditing}
-                            position={tablePositions[table.number]}
-                            onPositionChange={handlePositionChange}
                             onReserve={onReserve}
                         />
                     ))}
                 </View>
-            </ScrollView>
+            </View>
         </Pressable>
     )
 }

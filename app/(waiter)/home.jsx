@@ -1,16 +1,26 @@
 import { View, Text, TouchableOpacity, Image, FlatList } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import icons from '../../constants/icons'
 import TableList from '../../components/TableList'
+import QRModal from '../../components/QRModal'
 import { tableStore } from '../../hooks/useStore'
 import OrderItem from '../../components/OrderItem'
 import { router } from 'expo-router'
 import ReservedModal from '../../components/ReservedModal'
 
 const Home = () => {
-    const { selectedTable, setDropdownTable, updateTableStatus, reservationModal, setReservationModal } = tableStore();
-    const { isQrModalVisible, setQrModalVisible } = useState(false);
+    const { selectedTable, setDropdownTable, updateTableStatus, reservationModal, setReservationModal, fetchTables } = tableStore();
+    const [isQrModalVisible, setQrModalVisible] = useState(false);
+
+    useEffect(() => {
+        // Create an async function inside useEffect
+        const loadTables = async () => {
+            await fetchTables();
+        };
+        
+        loadTables();
+    }, []);
 
     const handleReservation = (tableNumber) => {
         setReservationModal({ visible: true, tableNumber });
@@ -48,7 +58,7 @@ const Home = () => {
                                 className='w-6 h-6'
                             />
                             <Text className='ml-1 font-semibold'>
-                                Table: {selectedTable?.number}
+                                Table: {selectedTable?.table_num}
                             </Text>
                         </View>
                     </View>
@@ -98,6 +108,7 @@ const Home = () => {
                                 </View>
                                 <TouchableOpacity
                                     className='bg-[#A9A9A9] h-[65px] mb-2 flex justify-center rounded-lg items-center'
+                                    onPress={() => setQrModalVisible(true)}
                                 >
                                     <Text className='text-white font-bold text-lg'>
                                         Print QR For Menu
@@ -119,6 +130,12 @@ const Home = () => {
                     setReservationModal({ visible: false, tableNumber: null });
                 }}
             />
+
+            <QRModal
+                visible={isQrModalVisible}
+                onClose={() => setQrModalVisible(false)}
+            />
+
         </SafeAreaView>
     )
 }

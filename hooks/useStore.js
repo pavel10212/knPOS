@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const loginStore = create((set) => ({
   role: "waiter",
@@ -8,72 +9,8 @@ export const loginStore = create((set) => ({
 }));
 
 export const tableStore = create((set) => ({
-  // Table State
-  tables: [
-    {
-      number: 1,
-      persons: 2,
-      status: "unavailable",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 2,
-      persons: 4,
-      status: "available",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 3,
-      persons: 2,
-      status: "reserved",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 4,
-      persons: 4,
-      status: "available",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 5,
-      persons: 2,
-      status: "unavailable",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 6,
-      persons: 4,
-      status: "available",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 7,
-      persons: 4,
-      status: "reserved",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 8,
-      persons: 2,
-      status: "available",
-      reservation: null,
-      orders: [],
-    },
-    {
-      number: 9,
-      persons: 4,
-      status: "unavailable",
-      reservation: null,
-      orders: [],
-    },
-  ],
+  // Initialize tables with empty array
+  tables: [],
   selectedTable: null,
   dropdownTableNumber: null,
   reservationModal: { visible: false, tableNumber: null },
@@ -146,7 +83,9 @@ export const tableStore = create((set) => ({
         if (table.number === tableNumber) {
           const updatedOrders = table.orders.map((order) => {
             if (order.name === orderName) {
-              const updatedIndividualNotes = [...(order.individualNotes || Array(order.quantity).fill(''))];
+              const updatedIndividualNotes = [
+                ...(order.individualNotes || Array(order.quantity).fill("")),
+              ];
               updatedIndividualNotes[index] = notes;
               return {
                 ...order,
@@ -173,31 +112,41 @@ export const tableStore = create((set) => ({
 
       let updatedOrders;
       if (existingOrder) {
-        updatedOrders = existingOrders.map((o) => {
-          if (o.name === order.name) {
-            const newQuantity = o.quantity + order.quantity;
-            if (newQuantity <= 0) return null;
-            
-            let individualNotes = [...(o.individualNotes || Array(o.quantity).fill(''))];
-            if (order.quantity > 0) {
-              individualNotes = [...individualNotes, ...Array(order.quantity).fill('')];
-            } else {
-              individualNotes = individualNotes.slice(0, newQuantity);
+        updatedOrders = existingOrders
+          .map((o) => {
+            if (o.name === order.name) {
+              const newQuantity = o.quantity + order.quantity;
+              if (newQuantity <= 0) return null;
+
+              let individualNotes = [
+                ...(o.individualNotes || Array(o.quantity).fill("")),
+              ];
+              if (order.quantity > 0) {
+                individualNotes = [
+                  ...individualNotes,
+                  ...Array(order.quantity).fill(""),
+                ];
+              } else {
+                individualNotes = individualNotes.slice(0, newQuantity);
+              }
+
+              return {
+                ...o,
+                quantity: newQuantity,
+                individualNotes,
+              };
             }
-            
-            return {
-              ...o,
-              quantity: newQuantity,
-              individualNotes,
-            };
-          }
-          return o;
-        }).filter(Boolean);
+            return o;
+          })
+          .filter(Boolean);
       } else {
-        updatedOrders = [...existingOrders, {
-          ...order,
-          individualNotes: Array(order.quantity).fill(''),
-        }];
+        updatedOrders = [
+          ...existingOrders,
+          {
+            ...order,
+            individualNotes: Array(order.quantity).fill(""),
+          },
+        ];
       }
       const updatedTables = state.tables.map((table) => {
         if (table.number === tableNumber) {
@@ -234,4 +183,66 @@ export const tableStore = create((set) => ({
     set((state) => ({
       paymentHistory: [...state.paymentHistory, payment],
     })),
+
+  // Add new actions
+  setTables: (tables) => set({ tables }),
+
+  saveTablesToCache: async (tables) => {
+    try {
+      await AsyncStorage.setItem("cached_tables", JSON.stringify(tables));
+    } catch (error) {
+      console.error("Error saving tables to cache:", error);
+    }
+  },
+
+  loadTablesFromCache: async () => {
+    try {
+      const cachedTables = await AsyncStorage.getItem("cached_tables");
+      if (cachedTables) {
+        set({ tables: JSON.parse(cachedTables) });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error loading tables from cache:", error);
+      return false;
+    }
+  },
+
+  fetchTables: async () => {
+    try {
+      set({ tables: [] });
+      const cachedTables = await AsyncStorage.getItem("cached_tables");
+      if (cachedTables) {
+        const parsedTables = JSON.parse(cachedTables);
+        set({ tables: parsedTables.map(table => ({
+          ...table,
+          location: typeof table.location === 'string' ? 
+            JSON.parse(table.location) : table.location
+        })) });
+      }
+
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch tables");
+      }
+      
+      const data = await response.json();
+      const processedData = data.map(table => ({
+        ...table,
+        location: typeof table.location === 'string' ? 
+          JSON.parse(table.location) : table.location
+      }));
+      
+      set({ tables: processedData });
+      await AsyncStorage.setItem("cached_tables", JSON.stringify(processedData));
+
+    } catch (error) {
+      console.error("Error fetching tables:", error);
+      set({ tables: [] });
+    }
+  },
 }));
