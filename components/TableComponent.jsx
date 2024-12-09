@@ -40,8 +40,8 @@ const TableComponent = ({
 
     const getTableSize = () => {
         switch (capacity) {
-            case 2: return 'w-32 h-32'  
-            case 6: return 'w-48 h-32' 
+            case 2: return 'w-32 h-32'
+            case 6: return 'w-48 h-32'
             default: return 'w-32 h-32'
         }
     }

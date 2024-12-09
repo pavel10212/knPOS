@@ -9,7 +9,6 @@ export const loginStore = create((set) => ({
 }));
 
 export const tableStore = create((set) => ({
-  // Initialize tables with empty array
   tables: [],
   selectedTable: null,
   dropdownTableNumber: null,
@@ -34,10 +33,10 @@ export const tableStore = create((set) => ({
   updateTableStatus: (tableNumber, newStatus) =>
     set((state) => ({
       tables: state.tables.map((table) =>
-        table.number === tableNumber ? { ...table, status: newStatus } : table
+        table.table_num === tableNumber ? { ...table, status: newStatus } : table
       ),
       selectedTable:
-        state.selectedTable?.number === tableNumber
+        state.selectedTable?.table_num === tableNumber
           ? { ...state.selectedTable, status: newStatus }
           : state.selectedTable,
     })),
@@ -65,7 +64,7 @@ export const tableStore = create((set) => ({
 
       return {
         tables: updatedTables,
-        selectedTable: updatedTables.find((t) => t.number === tableNumber),
+        selectedTable: updatedTables.find((t) => t.table_num === tableNumber),
       };
     }),
 
@@ -101,7 +100,7 @@ export const tableStore = create((set) => ({
 
       return {
         tables: updatedTables,
-        selectedTable: updatedTables.find((t) => t.number === tableNumber),
+        selectedTable: updatedTables.find((t) => t.table_num === tableNumber),
       };
     }),
 

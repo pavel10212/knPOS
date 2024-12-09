@@ -14,11 +14,9 @@ const Home = () => {
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
     useEffect(() => {
-        // Create an async function inside useEffect
         const loadTables = async () => {
             await fetchTables();
         };
-        
         loadTables();
     }, []);
 
@@ -32,7 +30,6 @@ const Home = () => {
             order={item}
         />
     );
-
 
     return (
         <SafeAreaView className='flex-1 bg-white'>
@@ -134,6 +131,7 @@ const Home = () => {
             <QRModal
                 visible={isQrModalVisible}
                 onClose={() => setQrModalVisible(false)}
+                table_num={selectedTable?.table_num}
             />
 
         </SafeAreaView>
