@@ -20,13 +20,19 @@ const TableComponent = ({
         setDropdownTable(isDropdownOpen ? null : table_num);
     }
 
-    const handleStatusChange = (newStatus) => {
+    const handleStatusChange = async (newStatus) => {
         if (newStatus === 'reserved') {
             handleReservation(table_num);
             return;
         }
-        updateTableStatus(table_num, newStatus);
-        setDropdownTable(null);
+        try {
+            const success = await updateTableStatus(table_num, newStatus);
+            if (!success) throw new Error('Failed to update table status');
+            setDropdownTable(null);
+        } catch (error) {
+            console.error('Error updating table status:', error);
+            // You might want to add error handling UI here
+        }
     };
 
     const getBackgroundColor = () => {

@@ -1,52 +1,55 @@
 import { useEffect, useState } from "react";
 import { Modal, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import QRCode from 'react-native-qrcode-svg';
+import { tableStore } from "../hooks/useStore";
+
+const API_BASE = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
 const QRModal = ({ visible, onClose, table_num }) => {
-  const [qrValue, setQrValue] = useState('Please wait...');
+  const [qrValue, setQrValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { updateTableStatus } = tableStore();
 
   useEffect(() => {
-    if (visible) {
-      console.log('Fetching token for table:', table_num);
-      const fetchToken = async () => {
-        if (!table_num) {
-          setQrValue('Invalid table number');
-          return;
+    if (!visible || !table_num) return;
+
+    const generateQRAndUpdateTable = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        console.log(`📡 Generating QR code for table ${table_num}...`);
+        const tokenResponse = await fetch(`${API_BASE}/generate-token`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ table_num }),
+        });
+
+        if (!tokenResponse.ok) {
+          console.error('❌ Failed to generate QR code');
+          throw new Error('Failed to generate QR code');
         }
 
-        setIsLoading(true);
-        try {
-          const url = `http://${process.env.EXPO_PUBLIC_IP}:3000/generate-token`;
-          const response = await fetch(url, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ table_num }),
-          });
+        const { url } = await tokenResponse.json();
+        console.log('✅ QR code generated successfully');
+        if (!url) throw new Error('Invalid QR code data');
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Server response:', errorText);
-            throw new Error(`Server error: ${response.status}`);
-          }
+        setQrValue(url);
 
-          const data = await response.json();
-          if (!data.url) {
-            throw new Error('No URI in response');
-          }
-          setQrValue(data.url);
-        } catch (error) {
-          console.error('Error fetching token:', error);
-          setQrValue('Error generating QR code');
-        } finally {
-          setIsLoading(false);
-        }
-      };
+        // Update table status using store function
+        const success = await updateTableStatus(table_num, "Unavailable");
+        if (!success) throw new Error('Failed to update table status');
 
-      fetchToken();
-    }
+      } catch (error) {
+        console.error('❌ Operation failed:', error);
+        setError('Failed to generate QR code. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    generateQRAndUpdateTable();
   }, [visible, table_num]);
 
   return (
@@ -58,17 +61,20 @@ const QRModal = ({ visible, onClose, table_num }) => {
     >
       <View className="flex-1 justify-center items-center bg-black/50">
         <View className="bg-white p-6 rounded-xl w-[80%] items-center">
-          <Text className="text-lg font-semibold mb-4">Scan this QR code to view the menu</Text>
+          <Text className="text-lg font-semibold mb-4">
+            Scan this QR code to view the menu
+          </Text>
+
           <View className="bg-white p-4 rounded-lg">
             {isLoading ? (
               <ActivityIndicator size="large" color="#0000ff" />
+            ) : error ? (
+              <Text className="text-red-500">{error}</Text>
             ) : (
-              <QRCode
-                value={qrValue}
-                size={200}
-              />
+              <QRCode value={qrValue || 'Error'} size={200} />
             )}
           </View>
+
           <TouchableOpacity
             className="mt-4 bg-primary px-6 py-2 rounded-lg"
             onPress={onClose}

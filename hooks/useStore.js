@@ -1,52 +1,80 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const CACHE_KEY = "cached_tables";
+
 export const loginStore = create((set) => ({
   role: "waiter",
-  setRole: (role) => set({ role }),
   isLoggedIn: false,
+  setRole: (role) => set({ role }),
   setIsLoggedIn: (isLoggedIn) => set({ isLoggedIn }),
 }));
 
-export const tableStore = create((set) => ({
+export const tableStore = create((set, get) => ({
+  // State
   tables: [],
   selectedTable: null,
   dropdownTableNumber: null,
   reservationModal: { visible: false, tableNumber: null },
   paymentHistory: [],
 
-  // Table Selection Actions
+  // Table Selection
   selectTable: (table) =>
-    set((state) => {
-      const existingTable = state.tables.find((t) => t.number === table.number);
-      return {
-        selectedTable: {
-          ...table,
-          orders: existingTable?.orders || [],
-        },
-      };
-    }),
+    set((state) => ({
+      selectedTable: {
+        ...table,
+        orders:
+          state.tables.find((t) => t.number === table.number)?.orders || [],
+      },
+    })),
   setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
   updateSelectedTable: (table) => set({ selectedTable: table }),
 
-  // Table Status Management
-  updateTableStatus: (tableNumber, newStatus) =>
-    set((state) => ({
-      tables: state.tables.map((table) =>
-        table.table_num === tableNumber
-          ? { ...table, status: newStatus }
-          : table
-      ),
-      selectedTable:
-        state.selectedTable?.table_num === tableNumber
-          ? { ...state.selectedTable, status: newStatus }
-          : state.selectedTable,
-    })),
+  // Table Status
+  updateTableStatus: async (tableNumber, newStatus) => {
+    try {
+      console.log(`📡 Sending PUT request to /table-update for table ${tableNumber} with status ${newStatus}`);
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP}:3000/table-update`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            table_num: tableNumber, 
+            status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) // Capitalize first letter
+          }),
+        }
+      );
 
-  // Reservation Management
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Server response error:', errorData);
+        throw new Error('Failed to update table status');
+      }
+      console.log(`✅ Table ${tableNumber} status updated successfully`);
+      set((state) => {
+        const updatedTables = state.tables.map((table) =>
+          table.table_num === tableNumber
+            ? { ...table, status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) }
+            : table
+        );
+        return {
+          tables: updatedTables,
+          selectedTable:
+            state.selectedTable?.table_num === tableNumber
+              ? { ...state.selectedTable, status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) }
+              : state.selectedTable,
+        };
+      });
+      return true;
+    } catch (error) {
+      console.error('❌ Error updating table status:', error);
+      throw error; // Propagate error to calling component
+    }
+  },
+
+  // Reservation
   setReservationModal: (modalState) => set({ reservationModal: modalState }),
-  handleReservation: (tableNumber) =>
-    set({ reservationModal: { visible: true, tableNumber } }),
   updateTableReservation: (tableNumber, reservationData) =>
     set((state) => {
       const updatedTables = state.tables.map((table) =>
@@ -70,7 +98,7 @@ export const tableStore = create((set) => ({
       };
     }),
 
-  // Order Management
+  // Orders
   updateSelectedTableOrders: (orders) =>
     set((state) => ({
       selectedTable: state.selectedTable
@@ -78,164 +106,63 @@ export const tableStore = create((set) => ({
         : null,
     })),
 
-  updateOrderNotes: (tableNumber, orderName, index, notes) =>
-    set((state) => {
-      const updatedTables = state.tables.map((table) => {
-        if (table.number === tableNumber) {
-          const updatedOrders = table.orders.map((order) => {
-            if (order.name === orderName) {
-              const updatedIndividualNotes = [
-                ...(order.individualNotes || Array(order.quantity).fill("")),
-              ];
-              updatedIndividualNotes[index] = notes;
-              return {
-                ...order,
-                individualNotes: updatedIndividualNotes,
-              };
-            }
-            return order;
-          });
-          return { ...table, orders: updatedOrders };
-        }
-        return table;
-      });
-
-      return {
-        tables: updatedTables,
-        selectedTable: updatedTables.find((t) => t.table_num === tableNumber),
-      };
-    }),
-
   addOrderToTable: (tableNumber, order) =>
     set((state) => {
       const existingOrders = state.selectedTable?.orders || [];
       const existingOrder = existingOrders.find((o) => o.name === order.name);
 
-      let updatedOrders;
-      if (existingOrder) {
-        updatedOrders = existingOrders
-          .map((o) => {
-            if (o.name === order.name) {
+      const updatedOrders = existingOrder
+        ? existingOrders
+            .map((o) => {
+              if (o.name !== order.name) return o;
               const newQuantity = o.quantity + order.quantity;
               if (newQuantity <= 0) return null;
 
-              let individualNotes = [
-                ...(o.individualNotes || Array(o.quantity).fill("")),
-              ];
-              if (order.quantity > 0) {
-                individualNotes = [
-                  ...individualNotes,
-                  ...Array(order.quantity).fill(""),
-                ];
-              } else {
-                individualNotes = individualNotes.slice(0, newQuantity);
-              }
+              const individualNotes =
+                newQuantity > o.quantity
+                  ? [
+                      ...(o.individualNotes || []),
+                      ...Array(order.quantity).fill(""),
+                    ]
+                  : (o.individualNotes || []).slice(0, newQuantity);
 
-              return {
-                ...o,
-                quantity: newQuantity,
-                individualNotes,
-              };
-            }
-            return o;
-          })
-          .filter(Boolean);
-      } else {
-        updatedOrders = [
-          ...existingOrders,
-          {
-            ...order,
-            individualNotes: Array(order.quantity).fill(""),
-          },
-        ];
-      }
-      const updatedTables = state.tables.map((table) => {
-        if (table.number === tableNumber) {
-          return {
-            ...table,
-            orders: updatedOrders,
-          };
-        }
-        return table;
-      });
+              return { ...o, quantity: newQuantity, individualNotes };
+            })
+            .filter(Boolean)
+        : [
+            ...existingOrders,
+            { ...order, individualNotes: Array(order.quantity).fill("") },
+          ];
 
       return {
-        selectedTable: {
-          ...state.selectedTable,
-          orders: updatedOrders,
-        },
-        tables: updatedTables,
+        selectedTable: { ...state.selectedTable, orders: updatedOrders },
+        tables: state.tables.map((table) =>
+          table.number === tableNumber
+            ? { ...table, orders: updatedOrders }
+            : table
+        ),
       };
     }),
 
-  // Table Operations
-  clearTable: (tableNumber) =>
-    set((state) => ({
-      selectedTable: null,
-      tables: state.tables.map((table) =>
-        table.number === tableNumber
-          ? { ...table, status: "available", orders: [] }
-          : table
-      ),
-    })),
-
-  // Payment Management
-  addPaymentHistory: (payment) =>
-    set((state) => ({
-      paymentHistory: [...state.paymentHistory, payment],
-    })),
-
-  // Add new actions
+  // Data Management
   setTables: (tables) => set({ tables }),
-
-  saveTablesToCache: async (tables) => {
-    try {
-      await AsyncStorage.setItem("cached_tables", JSON.stringify(tables));
-    } catch (error) {
-      console.error("Error saving tables to cache:", error);
-    }
-  },
-
-  loadTablesFromCache: async () => {
-    try {
-      const cachedTables = await AsyncStorage.getItem("cached_tables");
-      if (cachedTables) {
-        set({ tables: JSON.parse(cachedTables) });
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error loading tables from cache:", error);
-      return false;
-    }
-  },
-
   fetchTables: async () => {
     try {
-      set({ tables: [] });
-      const cachedTables = await AsyncStorage.getItem("cached_tables");
-      if (cachedTables) {
-        const parsedTables = JSON.parse(cachedTables);
-        set({
-          tables: parsedTables.map((table) => ({
-            ...table,
-            location:
-              typeof table.location === "string"
-                ? JSON.parse(table.location)
-                : table.location,
-          })),
-        });
+      console.log('📡 Fetching tables from cache...');
+      const cachedData = await get().loadTablesFromCache();
+      if (cachedData) {
+        console.log('✅ Tables loaded from cache');
+        set({ tables: cachedData });
       }
 
+      console.log(`📡 Fetching fresh tables data from server...`);
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tables");
-      }
+      if (!response.ok) throw new Error("Failed to fetch tables");
 
       const data = await response.json();
+      console.log(`✅ Received ${data.length} tables from server`);
       const processedData = data.map((table) => ({
         ...table,
         location:
@@ -245,13 +172,21 @@ export const tableStore = create((set) => ({
       }));
 
       set({ tables: processedData });
-      await AsyncStorage.setItem(
-        "cached_tables",
-        JSON.stringify(processedData)
-      );
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(processedData));
     } catch (error) {
-      console.error("Error fetching tables:", error);
+      console.error('❌ Error fetching tables:', error);
       set({ tables: [] });
+    }
+  },
+
+  // Cache helpers
+  loadTablesFromCache: async () => {
+    try {
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch (error) {
+      console.error("Error loading from cache:", error);
+      return null;
     }
   },
 }));

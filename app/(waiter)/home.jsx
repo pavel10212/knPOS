@@ -1,13 +1,13 @@
-import { View, Text, TouchableOpacity, Image, FlatList } from 'react-native'
+import { View, Text, FlatList } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import icons from '../../constants/icons'
 import TableList from '../../components/TableList'
 import QRModal from '../../components/QRModal'
-import { tableStore } from '../../hooks/useStore'
 import OrderItem from '../../components/OrderItem'
-import { router } from 'expo-router'
 import ReservedModal from '../../components/ReservedModal'
+import OrderHeader from '../../components/OrderHeader'
+import ActionButtons from '../../components/ActionButtons'
+import { tableStore } from '../../hooks/useStore'
 
 const Home = () => {
     const { selectedTable, setDropdownTable, updateTableStatus, reservationModal, setReservationModal, fetchTables } = tableStore();
@@ -47,18 +47,7 @@ const Home = () => {
 
                 {/* Right side Orders section */}
                 <View className='w-[300px] bg-white border-hairline flex flex-col'>
-                    <View className='h-[60px] flex justify-center border-hairline'>
-                        <Text className='font-bold ml-5 text-2xl'>Order #</Text>
-                        <View className='ml-5 flex flex-row'>
-                            <Image
-                                source={icons.table}
-                                className='w-6 h-6'
-                            />
-                            <Text className='ml-1 font-semibold'>
-                                Table: {selectedTable?.table_num}
-                            </Text>
-                        </View>
-                    </View>
+                    <OrderHeader selectedTable={selectedTable} />
                     <View className='flex-1'>
                         {selectedTable ? (
                             selectedTable.orders ? (
@@ -77,42 +66,7 @@ const Home = () => {
                         )}
                     </View>
                     {selectedTable ? (
-                        <>
-                            <View className='h-[140px] m-4 gap-2'>
-                                <View className='flex flex-row h-[65px] gap-2'>
-                                    <TouchableOpacity
-                                        className='bg-primary flex-1 flex rounded-lg justify-center items-center'
-                                        onPress={() => {
-                                            router.push('/menu')
-                                        }}
-                                    >
-                                        <Text className='text-white font-bold text-lg'>
-                                            Add To Order
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        className='bg-[#64D393] rounded-lg flex-1 flex justify-center items-center'
-                                        onPress={
-                                            () => {
-                                                router.push('/payment')
-                                            }
-                                        }
-                                    >
-                                        <Text className='text-white font-bold text-lg'>
-                                            Pay
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <TouchableOpacity
-                                    className='bg-[#A9A9A9] h-[65px] mb-2 flex justify-center rounded-lg items-center'
-                                    onPress={() => setQrModalVisible(true)}
-                                >
-                                    <Text className='text-white font-bold text-lg'>
-                                        Print QR For Menu
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </>
+                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} />
                     ) : null}
                 </View>
             </View>
@@ -133,7 +87,6 @@ const Home = () => {
                 onClose={() => setQrModalVisible(false)}
                 table_num={selectedTable?.table_num}
             />
-
         </SafeAreaView>
     )
 }
