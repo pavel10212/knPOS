@@ -20,6 +20,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
 
       try {
         console.log(`📡 Generating QR code for table ${table_num}...`);
+        console.log(`The link is for qr: ${qrValue}`)
         const tokenResponse = await fetch(`${API_BASE}/generate-token`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

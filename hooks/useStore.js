@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useOrderStore } from "./useOrderStore";
 
 const CACHE_KEY = "cached_tables";
 
@@ -19,56 +20,77 @@ export const tableStore = create((set, get) => ({
   paymentHistory: [],
 
   // Table Selection
-  selectTable: (table) =>
-    set((state) => ({
-      selectedTable: {
-        ...table,
-        orders:
-          state.tables.find((t) => t.number === table.number)?.orders || [],
-      },
-    })),
+  selectTable: async (table) => {
+    try {
+      const orders = await useOrderStore
+        .getState()
+      set({
+        selectedTable: {
+          ...table,
+          orders,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching orders for table:", error);
+      set({
+        selectedTable: {
+          ...table,
+          orders: [],
+        },
+      });
+    }
+  },
   setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
   updateSelectedTable: (table) => set({ selectedTable: table }),
 
   // Table Status
   updateTableStatus: async (tableNumber, newStatus) => {
     try {
-      console.log(`📡 Sending PUT request to /table-update for table ${tableNumber} with status ${newStatus}`);
+      console.log(
+        `📡 Sending PUT request to /table-update for table ${tableNumber} with status ${newStatus}`
+      );
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/table-update`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            table_num: tableNumber, 
-            status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) // Capitalize first letter
+          body: JSON.stringify({
+            table_num: tableNumber,
+            status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
           }),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('❌ Server response error:', errorData);
-        throw new Error('Failed to update table status');
+        console.error("❌ Server response error:", errorData);
+        throw new Error("Failed to update table status");
       }
       console.log(`✅ Table ${tableNumber} status updated successfully`);
       set((state) => {
         const updatedTables = state.tables.map((table) =>
           table.table_num === tableNumber
-            ? { ...table, status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) }
+            ? {
+                ...table,
+                status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
+              }
             : table
         );
         return {
           tables: updatedTables,
           selectedTable:
             state.selectedTable?.table_num === tableNumber
-              ? { ...state.selectedTable, status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) }
+              ? {
+                  ...state.selectedTable,
+                  status:
+                    newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
+                }
               : state.selectedTable,
         };
       });
       return true;
     } catch (error) {
-      console.error('❌ Error updating table status:', error);
+      console.error("❌ Error updating table status:", error);
       throw error; // Propagate error to calling component
     }
   },
@@ -148,14 +170,15 @@ export const tableStore = create((set, get) => ({
   setTables: (tables) => set({ tables }),
   fetchTables: async () => {
     try {
-      console.log('📡 Fetching tables from cache...');
+      console.log("📡 Fetching tables from cache...");
       const cachedData = await get().loadTablesFromCache();
+
       if (cachedData) {
-        console.log('✅ Tables loaded from cache');
+        console.log("✅ Using cached tables data");
         set({ tables: cachedData });
       }
 
-      console.log(`📡 Fetching fresh tables data from server...`);
+      // Always fetch fresh data from server
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
       );
@@ -174,8 +197,8 @@ export const tableStore = create((set, get) => ({
       set({ tables: processedData });
       await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(processedData));
     } catch (error) {
-      console.error('❌ Error fetching tables:', error);
-      set({ tables: [] });
+      console.error("❌ Error fetching tables:", error);
+      set({ tables: cachedData || [] });
     }
   },
 

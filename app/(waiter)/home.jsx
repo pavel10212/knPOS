@@ -8,16 +8,25 @@ import ReservedModal from '../../components/ReservedModal'
 import OrderHeader from '../../components/OrderHeader'
 import ActionButtons from '../../components/ActionButtons'
 import { tableStore } from '../../hooks/useStore'
+import { useOrderStore } from '../../hooks/useOrderStore';
 
 const Home = () => {
-    const { selectedTable, setDropdownTable, updateTableStatus, reservationModal, setReservationModal, fetchTables } = tableStore();
+    const { selectedTable, setDropdownTable, reservationModal, setReservationModal, fetchTables } = tableStore();
+    const { fetchOrders, initializeSocket, disconnectSocket } = useOrderStore();
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
     useEffect(() => {
-        const loadTables = async () => {
+        const cleanup = initializeSocket();
+        const initialLoad = async () => {
+            await fetchOrders(selectedTable?.table_num);
             await fetchTables();
         };
-        loadTables();
+        initialLoad();
+
+        return () => {
+            cleanup();
+            disconnectSocket();
+        };
     }, []);
 
     const handleReservation = (tableNumber) => {
