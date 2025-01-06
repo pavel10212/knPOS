@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useOrderStore } from "./useOrderStore";
+import { useSharedStore } from "./useSharedStore";
 
 const CACHE_KEY = "cached_tables";
 
@@ -13,31 +13,26 @@ export const loginStore = create((set) => ({
 
 export const tableStore = create((set, get) => ({
   // State
-  tables: [],
   selectedTable: null,
   dropdownTableNumber: null,
   reservationModal: { visible: false, tableNumber: null },
   paymentHistory: [],
 
+  // Use shared store for tables
+  get tables() {
+    return useSharedStore.getState().tables;
+  },
+
   // Table Selection
   selectTable: async (table) => {
     try {
-      const orders = await useOrderStore
-        .getState()
       set({
         selectedTable: {
           ...table,
-          orders,
         },
       });
     } catch (error) {
-      console.error("Error fetching orders for table:", error);
-      set({
-        selectedTable: {
-          ...table,
-          orders: [],
-        },
-      });
+      console.error("Error selecting table:", error);
     }
   },
   setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
@@ -91,7 +86,7 @@ export const tableStore = create((set, get) => ({
       return true;
     } catch (error) {
       console.error("❌ Error updating table status:", error);
-      throw error; // Propagate error to calling component
+      throw error;
     }
   },
 
@@ -167,15 +162,15 @@ export const tableStore = create((set, get) => ({
     }),
 
   // Data Management
-  setTables: (tables) => set({ tables }),
   fetchTables: async () => {
     try {
       console.log("📡 Fetching tables from cache...");
       const cachedData = await get().loadTablesFromCache();
+      const setTables = useSharedStore.getState().setTables;
 
       if (cachedData) {
         console.log("✅ Using cached tables data");
-        set({ tables: cachedData });
+        setTables(cachedData);
       }
 
       // Always fetch fresh data from server
@@ -194,11 +189,12 @@ export const tableStore = create((set, get) => ({
             : table.location,
       }));
 
-      set({ tables: processedData });
+      setTables(processedData);
       await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(processedData));
     } catch (error) {
       console.error("❌ Error fetching tables:", error);
-      set({ tables: cachedData || [] });
+      const cachedData = await get().loadTablesFromCache();
+      useSharedStore.getState().setTables(cachedData || []);
     }
   },
 

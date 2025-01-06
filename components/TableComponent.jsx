@@ -4,6 +4,7 @@ import { tableStore } from '../hooks/useStore';
 
 const TableComponent = ({
     table_num,
+    orders,
     capacity,
     status,
     reservation_details,
@@ -70,7 +71,7 @@ const TableComponent = ({
                 <TouchableOpacity
                     onPress={(e) => {
                         e.stopPropagation();
-                        selectTable({ table_num, capacity, status, reservation_details });
+                        selectTable({ table_num, orders, capacity, status, reservation_details });
                     }}
                     onLongPress={(e) => {
                         e.stopPropagation();

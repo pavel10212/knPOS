@@ -9,17 +9,20 @@ import OrderHeader from '../../components/OrderHeader'
 import ActionButtons from '../../components/ActionButtons'
 import { tableStore } from '../../hooks/useStore'
 import { useOrderStore } from '../../hooks/useOrderStore';
+import { useMenuStore } from '../../hooks/useMenuStore'
 
 const Home = () => {
     const { selectedTable, setDropdownTable, reservationModal, setReservationModal, fetchTables } = tableStore();
     const { fetchOrders, initializeSocket, disconnectSocket } = useOrderStore();
+    const { fetchMenu } = useMenuStore();
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
     useEffect(() => {
         const cleanup = initializeSocket();
         const initialLoad = async () => {
-            await fetchOrders(selectedTable?.table_num);
             await fetchTables();
+            await fetchOrders();
+            await fetchMenu();
         };
         initialLoad();
 
@@ -40,6 +43,27 @@ const Home = () => {
         />
     );
 
+    useEffect(() => {
+        const parseOrder = () => {
+            try {
+                if (!selectedTable) {
+                    console.log('No table selected');
+                    return;
+                }
+
+                if (selectedTable.orders && selectedTable.orders[0]) {
+                    const orders = selectedTable.orders[0];
+                    console.log('Order Details:', orders.orderDetails);
+                } else {
+                    console.log('No orders for this table');
+                }
+            } catch (error) {
+                console.error('Error parsing order:', error);
+            }
+        };
+        parseOrder();
+    }, [selectedTable]);
+
     return (
         <SafeAreaView className='flex-1 bg-white'>
             <View className='flex flex-row flex-1'>
@@ -55,6 +79,7 @@ const Home = () => {
                 </View>
 
                 {/* Right side Orders section */}
+                {/* {console.log(selectedTable)} */}
                 <View className='w-[300px] bg-white border-hairline flex flex-col'>
                     <OrderHeader selectedTable={selectedTable} />
                     <View className='flex-1'>

@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import io from 'socket.io-client';
+import io from "socket.io-client";
+import { useSharedStore } from "./useSharedStore";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
@@ -15,39 +16,53 @@ export const useOrderStore = create((set, get) => ({
   // Actions
   setOrders: (orders) => set({ orders }),
 
-  fetchOrders: async (tableNum = null) => {
+  updateTablesWithOrders: (tables, orders) => {
+    return tables.map((table) => ({
+      ...table,
+      orders: orders.filter((order) => order.tableNum === table.table_num),
+    }));
+  },
+
+  fetchOrders: async () => {
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-get${
-          tableNum ? `?table_num=${tableNum}` : ""
-        }`
+        `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-get`
       );
       if (!response.ok) throw new Error("Failed to fetch orders");
 
       const data = await response.json();
-      const processedOrders = data.map((order) => ({
-        ...order,
-        order_details:
-          typeof order.order_details === "string"
-            ? JSON.parse(order.order_details)
-            : order.order_details,
-      }));
 
-      set({
-        orders: processedOrders,
-        activeOrders: processedOrders.filter(
-          (order) => order.order_status !== "Completed"
-        ),
-        orderHistory: processedOrders.filter(
-          (order) => order.order_status === "Completed"
-        ),
-        isLoading: false,
+      const processedOrders = data.map((order) => {
+        return {
+          orderId: order.order_id,
+          order_status: order.order_status,
+          total_amount: order.total_amount,
+          order_date_time: order.order_date_time,
+          order_completion_date_time: order.order_completion_date_time,
+          orderDetails: order.order_details,
+          tableNum: order.table_num,
+        };
       });
+
+      // Update orders in orderStore
+      set({
+        isLoading: false,
+        orders: processedOrders,
+      });
+
+      const { tables, setTables } = useSharedStore.getState();
+
+      const updateTables = get().updateTablesWithOrders(
+        tables,
+        processedOrders
+      );
+      setTables(updateTables);
 
       return processedOrders;
     } catch (error) {
-      set({ error: error.message, isLoading: false });
+      console.error("Error fetching orders:", error);
+      set({ isLoading: false, error });
       return [];
     }
   },
@@ -85,23 +100,23 @@ export const useOrderStore = create((set, get) => ({
     if (socket) return; // Already initialized
 
     const newSocket = io(SOCKET_URL, {
-      transports: ['polling'],
+      transports: ["polling"],
       upgrade: false,
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
     });
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
+    newSocket.on("connect", () => {
+      console.log("Socket connected");
     });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+    newSocket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
     });
 
-    newSocket.on('new-order', async (newOrder) => {
-      console.log('New order received:', newOrder);
+    newSocket.on("new-order", async (newOrder) => {
+      console.log("New order received:", newOrder);
       await get().fetchOrders();
     });
 
@@ -120,5 +135,5 @@ export const useOrderStore = create((set, get) => ({
       socket.disconnect();
       set({ socket: null });
     }
-  }
+  },
 }));

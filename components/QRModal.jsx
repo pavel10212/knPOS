@@ -20,23 +20,24 @@ const QRModal = ({ visible, onClose, table_num }) => {
 
       try {
         console.log(`📡 Generating QR code for table ${table_num}...`);
-        console.log(`The link is for qr: ${qrValue}`)
         const tokenResponse = await fetch(`${API_BASE}/generate-token`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ table_num }),
         });
-
+        console.log("Has attempted to fetch")
+        
         if (!tokenResponse.ok) {
           console.error('❌ Failed to generate QR code');
           throw new Error('Failed to generate QR code');
         }
-
+        
         const { url } = await tokenResponse.json();
         console.log('✅ QR code generated successfully');
         if (!url) throw new Error('Invalid QR code data');
-
+        
         setQrValue(url);
+        console.log(`The link is for qr: ${qrValue}`)
 
         // Update table status using store function
         const success = await updateTableStatus(table_num, "Unavailable");

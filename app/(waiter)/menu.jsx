@@ -5,69 +5,17 @@ import MenuItem from '../../components/MenuItem'
 import OrderItem from '../../components/OrderItem'
 import icons from '../../constants/icons'
 import { tableStore } from '../../hooks/useStore'
+import { useSharedStore } from '../../hooks/useSharedStore'
 import { router } from 'expo-router'
 
-const menuItems = [
-  {
-    id: 1,
-    title: 'Chicken Wings',
-    category: 'Appetizers',
-    price: '15.99',
-    image: icons.menu
-  },
-  {
-    id: 2,
-    title: 'Caesar Salad',
-    category: 'Salads',
-    price: '12.99',
-    image: icons.menu
-  },
-  {
-    id: 3,
-    title: 'Beef Burger',
-    category: 'Main Course',
-    price: '16.99',
-    image: icons.menu
-  },
-  {
-    id: 4,
-    title: 'Pasta Carbonara',
-    category: 'Main Course',
-    price: '17.99',
-    image: icons.menu
-  },
-  {
-    id: 5,
-    title: 'Margherita Pizza',
-    category: 'Pizza',
-    price: '18.99',
-    image: icons.menu
-  },
-  {
-    id: 6,
-    title: 'Fish & Chips',
-    category: 'Main Course',
-    price: '19.99',
-    image: icons.menu
-  },
-  {
-    id: 7,
-    title: 'Greek Salad',
-    category: 'Salads',
-    price: '13.99',
-    image: icons.menu
-  },
-  {
-    id: 8,
-    title: 'Chocolate Cake',
-    category: 'Desserts',
-    price: '8.99',
-    image: icons.menu
-  }
-];
+
 
 const Menu = () => {
   const { selectedTable, addOrderToTable, updateOrderNotes } = tableStore();
+  const { menu } = useSharedStore();
+
+  console.log(menu, "The whole menu")
+  const menuItems = menu
 
   const getCurrentQuantity = (itemTitle) => {
     if (!selectedTable?.orders) return 0;
@@ -90,7 +38,7 @@ const Menu = () => {
     if (!selectedTable) return;
 
     const order = {
-      name: item.title,
+      name: item.menu_item_name, // Changed from item.title
       quantity: action === 'add' ? +1 : -1,
       notes: "",
       price: parseFloat(item.price)
@@ -116,28 +64,23 @@ const Menu = () => {
             data={menuItems}
             renderItem={({ item }) => (
               <MenuItem
-                title={item.title}
+                title={item.menu_item_name}
                 category={item.category}
                 price={item.price}
-                image={item.image}
+                image={item.menu_item_image || null}
+                description={item.description}
                 onChangeQuantity={(action) => handleItemAction(item, action)}
-                currentQuantity={getCurrentQuantity(item.title)}
-                getItemNotes={(index) => getItemNotes(item.title, index)}
-                onNotesChange={(index, notes) => handleNotesChange(item.title, index, notes)}
+                currentQuantity={getCurrentQuantity(item.menu_item_name)}
+                getItemNotes={(index) => getItemNotes(item.menu_item_name, index)}
+                onNotesChange={(index, notes) => handleNotesChange(item.menu_item_name, index, notes)}
               />
             )}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={item => item.menu_item_id.toString()}
             numColumns={3}
-            contentContainerStyle={{
-              padding: 16,
-              paddingBottom: 100,
-            }}
-            columnWrapperStyle={{
-              justifyContent: 'space-between',
-              marginHorizontal: 16,
-              width: '100%',
-            }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginHorizontal: 16 }}
           />
+
         </View>
 
         <View className='w-[300px] bg-white border-l border-gray-200 flex flex-col fixed right-0 top-0 bottom-0 shadow-lg'>
