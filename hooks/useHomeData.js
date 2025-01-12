@@ -14,9 +14,9 @@ export const useHomeData = () => {
     const cleanup = initializeSocket();
 
     const initialLoad = async () => {
-      // await fetchTables();
-      // await fetchOrders();
-      // await fetchMenu();
+      await fetchTables();
+      await fetchOrders();
+      await fetchMenu();
     };
     initialLoad();
 

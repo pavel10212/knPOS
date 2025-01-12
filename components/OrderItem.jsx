@@ -7,7 +7,7 @@ const OrderItem = ({ order, onNotesChange }) => {
     const [selected, setSelected] = useState([])
     const [notesModal, setNotesModal] = useState(false)
     const [editingNoteIndex, setEditingNoteIndex] = useState(0)
-    const { menu } = useSharedStore((state) => state.menu)
+    const menu = useSharedStore((state) => state.menu)
 
     const handleDropdownClick = () => {
         if (selected.includes(order.orderId)) {
@@ -47,9 +47,12 @@ const OrderItem = ({ order, onNotesChange }) => {
                 <View className='mt-2 mb-2'>
                     {orderItems?.map((item, index) => (
                         <View key={index} className='border-t border-gray-300 py-2'>
-                            <View className='flex flex-row justify-between px-4'>
-                                <Text className='font-semibold'>{item.name}</Text>
-                                <Text className='font-bold'>x{item.quantity}</Text>
+                            <View className='flex flex-row justify-between items-center px-4'>
+                                <Text className='font-semibold flex-1'>{item.name}</Text>
+                                <View className='flex flex-row justify-between items-center'>
+                                    <Text className='font-bold w-16'>x{item.quantity}</Text>
+                                    <Text className='font-bold w-24 text-right'>${Number(item.price).toFixed(2)}</Text>
+                                </View>
                             </View>
                             <TouchableOpacity onPress={() => handleEditNotes(index)} className='px-4 mt-1'>
                                 <Text>

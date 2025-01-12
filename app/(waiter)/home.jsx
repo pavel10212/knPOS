@@ -13,12 +13,10 @@ import { useHomeData } from '../../hooks/useHomeData';
 
 const Home = () => {
     useHomeData();
-    const { selectedTable, reservationModal, setReservationModal, setDropdownTable } = tableStore((state) => ({
-        selectedTable: state.selectedTable,
-        reservationModal: state.reservationModal,
-        setReservationModal: state.setReservationModal,
-        setDropdownTable: state.setDropdownTable,
-    }));
+    const selectedTable = tableStore((state) => state.selectedTable);
+    const reservationModal = tableStore((state) => state.reservationModal);
+    const setReservationModal = tableStore((state) => state.setReservationModal);
+    const setDropdownTable = tableStore((state) => state.setDropdownTable);
 
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
@@ -50,7 +48,7 @@ const Home = () => {
                     <View className="flex flex-row h-[60px] items-center justify-start border-hairline">
                         <Text className="ml-5 font-bold text-2xl">Table List</Text>
                     </View>
-                    {/* <TableList isEditing={false} onReserve={handleReservation} /> */}
+                    <TableList isEditing={false} onReserve={handleReservation} />
                 </View>
 
                 {/* Right side Orders section */}
@@ -74,7 +72,7 @@ const Home = () => {
                         )}
                     </View>
                     {selectedTable ? (
-                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} orders={selectedTable?.orders || []} />
+                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} order={selectedTable?.orders || []} />
                     ) : null}
                 </View>
             </View>

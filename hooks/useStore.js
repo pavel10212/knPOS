@@ -155,10 +155,11 @@ export const tableStore = create((set, get) => ({
   // Data Management
   fetchTables: async () => {
     const cachedTables = localStore.getString("tables");
+    const setTables = useSharedStore.getState().setTables;
 
     if (cachedTables) {
       console.log("✅ Using cached tables data");
-      set({ tables: JSON.parse(cachedTables) });
+      setTables(JSON.parse(cachedTables));
       return;
     }
 
@@ -183,8 +184,8 @@ export const tableStore = create((set, get) => ({
             : table.location,
       }));
 
-      set({ tables: processedData });
-      localStore.setItem("tables", JSON.stringify(processedData));
+      setTables(processedData);
+      localStore.set("tables", JSON.stringify(processedData));
     } catch (error) {
       console.error("❌ Error fetching tables:", error);
       if (cachedTables) {

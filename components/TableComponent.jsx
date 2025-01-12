@@ -14,12 +14,12 @@ const TableComponent = ({
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = -50;
     const OFFSET_Y = 50;
-    const { selectTable, dropdownTableNumber, setDropdownTable, updateTableStatus, handleReservation } = tableStore((state) => ({
-        selectTable: state.selectTable,
-        dropdownTableNumber: state.dropdownTable,
-        setDropdownTable: state.setDropdownTable,
-        updateTableStatus: state.updateTableStatus,
-    }))
+
+    const selectTable = tableStore((state) => state.selectTable)
+    const dropdownTableNumber = tableStore((state) => state.dropdownTableNumber)
+    const setDropdownTable = tableStore((state) => state.setDropdownTable)
+    const updateTableStatus = tableStore((state) => state.updateTableStatus)
+
     const isDropdownOpen = dropdownTableNumber === table_num;
 
     const ifLongPressed = () => {

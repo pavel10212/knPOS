@@ -2,8 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import React from 'react';
 import { router } from 'expo-router';
 
-const ActionButtons = ({ onPrintQR, orders }) => (
-    console.log(orders, "The order is here"),
+const ActionButtons = ({ onPrintQR, order }) => (
     <View className='h-[140px] m-4 gap-2'>
         <View className='flex flex-row h-[65px] gap-2'>
             <TouchableOpacity
@@ -17,7 +16,7 @@ const ActionButtons = ({ onPrintQR, orders }) => (
                 onPress={() =>
                     router.push({
                         pathname: '/payment',
-                        params: { order: JSON.stringify(order) }
+                        params: { orderData: JSON.stringify(order) }
                     })}
             >
                 <Text className='text-white font-bold text-lg'>Pay</Text>

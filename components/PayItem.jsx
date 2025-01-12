@@ -1,44 +1,31 @@
-import { View, Text, Image, TouchableOpacity } from 'react-native';
-import icons from '../constants/icons';
+import { View, Text, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
 
-const PayItem = ({ item, deleteItem, addItem, subtractItem }) => (
-    <View className='flex flex-row justify-between items-center p-5 border-gray-200 border-hairline'>
-        <Text className='font-semibold w-[30%]'>{item.name}</Text>
-        <Text className='text-gray-501 w-[15%] text-center'>${item.price}</Text>
-        <View className='flex flex-row items-center justify-center w-[25%] gap-2'>
-            <TouchableOpacity
-                onPress={() => subtractItem(item)}
-                className='p-1'
-            >
-                <Image
-                    source={icons.minus}
-                    className='w-5 h-5'
-                    resizeMode='contain'
-                />
-            </TouchableOpacity>
-            <Text className='text-gray-501 text-center'>{item.quantity}</Text>
-            <TouchableOpacity
-                onPress={() => addItem(item)}
-                className='p-1'
-            >
-                <Image
-                    source={icons.plus}
-                    className='w-5 h-5'
-                    resizeMode='contain'
-                />
-            </TouchableOpacity>
+const PayItem = ({ item, addItem, subtractItem, deleteItem }) => {
+    const subtotal = item.price * item.quantity;
+
+    return (
+        <View className='flex flex-row justify-between items-center p-4 border-b border-gray-100'>
+            <Text className='w-[30%] font-medium'>{item.name}</Text>
+            <Text className='w-[15%] text-center'>${item.price.toFixed(2)}</Text>
+            <View className='w-[25%] flex-row justify-center items-center space-x-2'>
+                <TouchableOpacity onPress={() => subtractItem(item)}>
+                    <MaterialIcons name="remove-circle-outline" size={24} color="#666" />
+                </TouchableOpacity>
+                <Text className='text-center w-8'>{item.quantity}</Text>
+                <TouchableOpacity onPress={() => addItem(item)}>
+                    <MaterialIcons name="add-circle-outline" size={24} color="#666" />
+                </TouchableOpacity>
+            </View>
+            <Text className='w-[15%] text-right'>${subtotal.toFixed(2)}</Text>
+            <View className='w-[15%] flex items-center'>
+                <TouchableOpacity onPress={() => deleteItem(item)}>
+                    <MaterialIcons name="delete-outline" size={24} color="red" />
+                </TouchableOpacity>
+            </View>
         </View>
-        <Text className='font-semibold w-[15%] text-right'>${(item.price * item.quantity).toFixed(2)}</Text>
-        <TouchableOpacity
-            onPress={() => deleteItem(item)}
-            className='w-[15%] flex items-center justify-center'>
-            <Image
-                source={icons.trash}
-                className='w-6 h-6'
-                resizeMode='contain'
-            />
-        </TouchableOpacity>
-    </View>
-);
+    );
+};
 
 export default PayItem;

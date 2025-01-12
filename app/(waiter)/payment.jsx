@@ -1,20 +1,39 @@
 import { View, Text, FlatList, TouchableOpacity, Image, TextInput, Alert } from 'react-native'
 import { tableStore } from '../../hooks/useStore'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useLocalSearchParams } from 'expo-router'
 import icons from '../../constants/icons'
 import PayItem from '../../components/PayItem'
 import TipButton from '../../components/TipButton'
 import PaymentMethod from '../../components/PaymentMethod'
 import { router } from 'expo-router'
+import { useSharedStore } from '../../hooks/useSharedStore'
 
-const Payment = ({ order }) => {
-    const { selectedTable, updateSelectedTableOrders, updateTableStatus, clearTable, addPaymentHistory } = tableStore();
+const Payment = () => {
+    const { orderData } = useLocalSearchParams();
+    const selectedTable = tableStore((state) => state.selectedTable)
+    const updateSelectedTableOrders = tableStore((state) => state.updateSelectedTableOrders)
+    const updateTableStatus = tableStore((state) => state.updateTableStatus)
+    const clearTable = tableStore((state) => state.clearTable)
+    const addPaymentHistory = tableStore((state) => state.addPaymentHistory)
+    const menu = useSharedStore((state) => state.menu)
+
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [tipPercentage, setTipPercentage] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [cashReceived, setCashReceived] = useState(0);
-    console.log("The order", order)
+    const parsedOrder = JSON.parse(orderData)
 
+    const transformedOrder = parsedOrder[0].orderDetails?.map(item => {
+        const menuItem = menu?.menuItems?.find(mi => mi.menu_item_id === item.menu_item_id);
+        return {
+            id: item.menu_item_id,
+            name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
+            quantity: item.quantity,
+            price: menuItem?.price || 0
+        }
+    })
+    console.log(transformedOrder, "new")
 
     if (!selectedTable) {
         return (
@@ -24,8 +43,10 @@ const Payment = ({ order }) => {
         );
     }
 
+    const [orderItems, setOrderItems] = useState(transformedOrder)
+
     const calculations = useMemo(() => {
-        const subtotal = selectedTable?.orders?.reduce((sum, item) =>
+        const subtotal = orderItems?.reduce((sum, item) =>
             sum + (item.price * item.quantity), 0) || 0;
 
         return {
@@ -38,7 +59,7 @@ const Payment = ({ order }) => {
                 return this.subtotal + this.tip + this.serviceCharge - this.discountAmount + this.vat;
             }
         };
-    }, [selectedTable, tipPercentage, discount]);
+    }, [orderItems, tipPercentage, discount]);
 
     const finishPayment = () => {
         if (!selectedMethod) {
@@ -73,28 +94,24 @@ const Payment = ({ order }) => {
     }
 
     const deleteItem = (item) => {
-        const updatedOrders = selectedTable.orders.filter(order => order !== item);
-        updateSelectedTableOrders(updatedOrders);
+        setOrderItems(orderItems.filter(i => i.id !== item.id));
     }
 
     const addItem = (item) => {
-        const updatedOrders = selectedTable.orders.map(order =>
-            order.name === item.name
-                ? { ...order, quantity: order.quantity + 1 }
-                : order
-        );
-        updateSelectedTableOrders(updatedOrders);
+        setOrderItems(orderItems.map(i =>
+            i.id === item.id
+                ? { ...i, quantity: i.quantity + 1 }
+                : i
+        ));
     }
 
     const subtractItem = (item) => {
         if (item.quantity <= 1) return;
-
-        const updatedOrders = selectedTable.orders.map(order =>
-            order.name === item.name
-                ? { ...order, quantity: order.quantity - 1 }
-                : order
-        );
-        updateSelectedTableOrders(updatedOrders);
+        setOrderItems(orderItems.map(i =>
+            i.id === item.id
+                ? { ...i, quantity: i.quantity - 1 }
+                : i
+        ));
     }
 
 
@@ -118,13 +135,13 @@ const Payment = ({ order }) => {
                             <Text className='font-semibold w-[15%] text-center'>Actions</Text>
                         </View>
                         <FlatList
-                            data={selectedTable?.orders || []}
+                            data={orderItems}
                             renderItem={({ item }) => <PayItem
                                 addItem={addItem}
                                 subtractItem={subtractItem}
                                 deleteItem={deleteItem}
                                 item={item} />}
-                            keyExtractor={(_, index) => index.toString()}
+                            keyExtractor={(item) => item.id.toString()}
                         />
                     </View>
                 </View>
