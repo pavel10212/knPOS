@@ -1,12 +1,27 @@
 import { useSharedStore } from "./useSharedStore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { localStore } from "./Storage/cache";
 import { create } from "zustand";
-
-const CACHE_KEY = "cached_menu";
 
 export const useMenuStore = create((set) => ({
   fetchMenu: async () => {
     const setMenu = useSharedStore.getState().setMenu;
+
+    // START: Cache-based logic (REMOVE IN PRODUCTION)
+    try {
+      const cachedMenu = localStore.getString("menu");
+      if (cachedMenu) {
+        console.log("✅ Using cached menu data");
+        const parsedMenu = JSON.parse(cachedMenu);
+        setMenu(parsedMenu);
+        return parsedMenu;
+      }
+      console.log("⏳ No cached menu found, fetching from server...");
+    } catch (error) {
+      console.error("❌ Error accessing menu cache:", error);
+    }
+    // END: Cache-based logic (REMOVE IN PRODUCTION)
+
+    // Fetch menu from server
     try {
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/menu-get`
@@ -15,10 +30,13 @@ export const useMenuStore = create((set) => ({
 
       const data = await response.json();
 
+      // Update shared store and cache
       setMenu(data);
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      localStore.set("menu", JSON.stringify(data)); // Save to cache (REMOVE IN PRODUCTION)
+
+      return data;
     } catch (error) {
-      console.error("Error fetching menu:", error);
+      console.error("❌ Error fetching menu:", error);
     }
   },
 }));

@@ -1,8 +1,6 @@
 import { create } from "zustand";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSharedStore } from "./useSharedStore";
-
-const CACHE_KEY = "cached_tables";
+import { localStore } from "./Storage/cache";
 
 export const loginStore = create((set) => ({
   role: "waiter",
@@ -24,17 +22,10 @@ export const tableStore = create((set, get) => ({
   },
 
   // Table Selection
-  selectTable: async (table) => {
-    try {
-      set({
-        selectedTable: {
-          ...table,
-        },
-      });
-    } catch (error) {
-      console.error("Error selecting table:", error);
-    }
+  selectTable: (table) => {
+    set({ selectedTable: table });
   },
+
   setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
   updateSelectedTable: (table) => set({ selectedTable: table }),
 
@@ -163,24 +154,27 @@ export const tableStore = create((set, get) => ({
 
   // Data Management
   fetchTables: async () => {
+    const cachedTables = localStore.getString("tables");
+
+    if (cachedTables) {
+      console.log("✅ Using cached tables data");
+      set({ tables: JSON.parse(cachedTables) });
+      return;
+    }
+
     try {
-      console.log("📡 Fetching tables from cache...");
-      const cachedData = await get().loadTablesFromCache();
-      const setTables = useSharedStore.getState().setTables;
-
-      if (cachedData) {
-        console.log("✅ Using cached tables data");
-        setTables(cachedData);
-      }
-
-      // Always fetch fresh data from server
+      console.log("Found no cache, fetching from server instead...");
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
       );
-      if (!response.ok) throw new Error("Failed to fetch tables");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch tables");
+      }
 
       const data = await response.json();
       console.log(`✅ Received ${data.length} tables from server`);
+
       const processedData = data.map((table) => ({
         ...table,
         location:
@@ -189,23 +183,17 @@ export const tableStore = create((set, get) => ({
             : table.location,
       }));
 
-      setTables(processedData);
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(processedData));
+      set({ tables: processedData });
+      localStore.setItem("tables", JSON.stringify(processedData));
     } catch (error) {
       console.error("❌ Error fetching tables:", error);
-      const cachedData = await get().loadTablesFromCache();
-      useSharedStore.getState().setTables(cachedData || []);
-    }
-  },
-
-  // Cache helpers
-  loadTablesFromCache: async () => {
-    try {
-      const cached = await AsyncStorage.getItem(CACHE_KEY);
-      return cached ? JSON.parse(cached) : null;
-    } catch (error) {
-      console.error("Error loading from cache:", error);
-      return null;
+      if (cachedTables) {
+        console.log("ℹ️ Using fallback cached tables data");
+        set({ tables: JSON.parse(cachedTables) });
+      } else {
+        console.error("❌ No cached data available");
+        set({ tables: [] });
+      }
     }
   },
 }));

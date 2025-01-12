@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import io from "socket.io-client";
 import { useSharedStore } from "./useSharedStore";
+import { localStore } from "./Storage/cache";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
@@ -24,6 +25,26 @@ export const useOrderStore = create((set, get) => ({
   },
 
   fetchOrders: async () => {
+    // START: Cache-based logic (REMOVE IN PRODUCTION)
+    const cachedOrders = localStore.getString("orders");
+    if (cachedOrders) {
+      console.log("Using cached orders");
+      const parsedOrders = JSON.parse(cachedOrders);
+      set({ orders: parsedOrders, isLoading: false });
+
+      const sharedStore = useSharedStore.getState();
+      const updatedTables = get().updateTablesWithOrders(
+        sharedStore.tables,
+        parsedOrders
+      );
+      sharedStore.setTables(updatedTables);
+
+      return parsedOrders;
+    }
+    console.log("No cache found, fetching orders from server");
+    // END: Cache-based logic (REMOVE IN PRODUCTION)
+
+    // Fetch orders from server
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(
@@ -45,19 +66,22 @@ export const useOrderStore = create((set, get) => ({
         };
       });
 
+      // Save to MMKV cache (REMOVE IN PRODUCTION)
+      localStore.set("orders", JSON.stringify(processedOrders));
+
       // Update orders in orderStore
       set({
         isLoading: false,
         orders: processedOrders,
       });
 
-      const { tables, setTables } = useSharedStore.getState();
-
-      const updateTables = get().updateTablesWithOrders(
-        tables,
+      // Update shared store tables
+      const sharedStore = useSharedStore.getState();
+      const updatedTables = get().updateTablesWithOrders(
+        sharedStore.tables,
         processedOrders
       );
-      setTables(updateTables);
+      sharedStore.setTables(updatedTables);
 
       return processedOrders;
     } catch (error) {
@@ -87,6 +111,10 @@ export const useOrderStore = create((set, get) => ({
             : order
         ),
       }));
+
+      // Update cache with the updated orders (REMOVE IN PRODUCTION)
+      const updatedOrders = get().orders;
+      localStore.set("orders", JSON.stringify(updatedOrders));
 
       return true;
     } catch (error) {

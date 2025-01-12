@@ -7,12 +7,14 @@ import TipButton from '../../components/TipButton'
 import PaymentMethod from '../../components/PaymentMethod'
 import { router } from 'expo-router'
 
-const Payment = () => {
+const Payment = ({ order }) => {
     const { selectedTable, updateSelectedTableOrders, updateTableStatus, clearTable, addPaymentHistory } = tableStore();
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [tipPercentage, setTipPercentage] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [cashReceived, setCashReceived] = useState(0);
+    console.log("The order", order)
+
 
     if (!selectedTable) {
         return (

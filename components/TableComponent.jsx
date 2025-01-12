@@ -14,7 +14,12 @@ const TableComponent = ({
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = -50;
     const OFFSET_Y = 50;
-    const { selectTable, dropdownTableNumber, setDropdownTable, updateTableStatus, handleReservation } = tableStore();
+    const { selectTable, dropdownTableNumber, setDropdownTable, updateTableStatus, handleReservation } = tableStore((state) => ({
+        selectTable: state.selectTable,
+        dropdownTableNumber: state.dropdownTable,
+        setDropdownTable: state.setDropdownTable,
+        updateTableStatus: state.updateTableStatus,
+    }))
     const isDropdownOpen = dropdownTableNumber === table_num;
 
     const ifLongPressed = () => {
@@ -32,7 +37,6 @@ const TableComponent = ({
             setDropdownTable(null);
         } catch (error) {
             console.error('Error updating table status:', error);
-            // You might want to add error handling UI here
         }
     };
 

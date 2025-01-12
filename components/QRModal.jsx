@@ -9,7 +9,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
   const [qrValue, setQrValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { updateTableStatus } = tableStore();
+  const updateTableStatus = tableStore((state) => state.updateTableStatus)
 
   useEffect(() => {
     if (!visible || !table_num) return;
@@ -26,16 +26,16 @@ const QRModal = ({ visible, onClose, table_num }) => {
           body: JSON.stringify({ table_num }),
         });
         console.log("Has attempted to fetch")
-        
+
         if (!tokenResponse.ok) {
           console.error('❌ Failed to generate QR code');
           throw new Error('Failed to generate QR code');
         }
-        
+
         const { url } = await tokenResponse.json();
         console.log('✅ QR code generated successfully');
         if (!url) throw new Error('Invalid QR code data');
-        
+
         setQrValue(url);
         console.log(`The link is for qr: ${qrValue}`)
 

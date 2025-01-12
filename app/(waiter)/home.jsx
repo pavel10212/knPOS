@@ -1,88 +1,62 @@
-import { View, Text, FlatList } from 'react-native'
-import React, { useState, useEffect } from 'react'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import TableList from '../../components/TableList'
-import QRModal from '../../components/QRModal'
-import OrderItem from '../../components/OrderItem'
-import ReservedModal from '../../components/ReservedModal'
-import OrderHeader from '../../components/OrderHeader'
-import ActionButtons from '../../components/ActionButtons'
-import { tableStore } from '../../hooks/useStore'
-import { useOrderStore } from '../../hooks/useOrderStore';
-import { useMenuStore } from '../../hooks/useMenuStore'
+
+import { View, Text, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import TableList from '../../components/TableList';
+import QRModal from '../../components/QRModal';
+import OrderItem from '../../components/OrderItem';
+import ReservedModal from '../../components/ReservedModal';
+import OrderHeader from '../../components/OrderHeader';
+import ActionButtons from '../../components/ActionButtons';
+import { tableStore } from '../../hooks/useStore';
+import { useHomeData } from '../../hooks/useHomeData';
 
 const Home = () => {
-    const { selectedTable, setDropdownTable, reservationModal, setReservationModal, fetchTables } = tableStore();
-    const { fetchOrders, initializeSocket, disconnectSocket } = useOrderStore();
-    const { fetchMenu } = useMenuStore();
+    useHomeData();
+    const { selectedTable, reservationModal, setReservationModal, setDropdownTable } = tableStore((state) => ({
+        selectedTable: state.selectedTable,
+        reservationModal: state.reservationModal,
+        setReservationModal: state.setReservationModal,
+        setDropdownTable: state.setDropdownTable,
+    }));
+
     const [isQrModalVisible, setQrModalVisible] = useState(false);
-
-    useEffect(() => {
-        const cleanup = initializeSocket();
-        const initialLoad = async () => {
-            await fetchTables();
-            await fetchOrders();
-            await fetchMenu();
-        };
-        initialLoad();
-
-        return () => {
-            cleanup();
-            disconnectSocket();
-        };
-    }, []);
 
     const handleReservation = (tableNumber) => {
         setReservationModal({ visible: true, tableNumber });
     };
 
-    const renderOrder = ({ item, index }) => (
-        <OrderItem
-            key={index}
-            order={item}
-        />
-    );
-
-    useEffect(() => {
-        const parseOrder = () => {
-            try {
-                if (!selectedTable) {
-                    console.log('No table selected');
-                    return;
-                }
-
-                if (selectedTable.orders && selectedTable.orders[0]) {
-                    const orders = selectedTable.orders[0];
-                    console.log('Order Details:', orders.orderDetails);
-                } else {
-                    console.log('No orders for this table');
-                }
-            } catch (error) {
-                console.error('Error parsing order:', error);
-            }
-        };
-        parseOrder();
-    }, [selectedTable]);
+    const renderOrder = ({ item, index }) => {
+        const orderDate = new Date(item.order_date_time).toLocaleString();
+        return (
+            <OrderItem
+                key={index}
+                order={{
+                    ...item,
+                    formattedDate: orderDate,
+                    items: item.orderDetails,
+                    status: item.order_status,
+                    total: `$${item.total_amount.toFixed(2)}`,
+                }}
+            />
+        );
+    };
 
     return (
-        <SafeAreaView className='flex-1 bg-white'>
-            <View className='flex flex-row flex-1'>
+        <SafeAreaView className="flex-1 bg-white">
+            <View className="flex flex-row flex-1">
                 {/* Left side with Table List */}
-                <View className='flex-1'>
-                    <View className='flex flex-row h-[60px] items-center justify-start border-hairline'>
-                        <Text className='ml-5 font-bold text-2xl'>Table List</Text>
+                <View className="flex-1">
+                    <View className="flex flex-row h-[60px] items-center justify-start border-hairline">
+                        <Text className="ml-5 font-bold text-2xl">Table List</Text>
                     </View>
-                    <TableList
-                        isEditing={false}
-                        onReserve={handleReservation}
-                    />
+                    {/* <TableList isEditing={false} onReserve={handleReservation} /> */}
                 </View>
 
                 {/* Right side Orders section */}
-                {/* {console.log(selectedTable)} */}
-                <View className='w-[300px] bg-white border-hairline flex flex-col'>
+                <View className="w-[300px] bg-white border-hairline flex flex-col">
                     <OrderHeader selectedTable={selectedTable} />
-                    <View className='flex-1'>
+                    <View className="flex-1">
                         {selectedTable ? (
                             selectedTable.orders ? (
                                 <FlatList
@@ -93,14 +67,14 @@ const Home = () => {
                                     showsVerticalScrollIndicator={true}
                                 />
                             ) : (
-                                <Text className='p-4'>No orders yet</Text>
+                                <Text className="p-4">No orders yet</Text>
                             )
                         ) : (
-                            <Text className='p-4'>Select a table to view orders</Text>
+                            <Text className="p-4">Select a table to view orders</Text>
                         )}
                     </View>
                     {selectedTable ? (
-                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} />
+                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} orders={selectedTable?.orders || []} />
                     ) : null}
                 </View>
             </View>
@@ -122,7 +96,7 @@ const Home = () => {
                 table_num={selectedTable?.table_num}
             />
         </SafeAreaView>
-    )
-}
+    );
+};
 
-export default Home
+export default Home;

@@ -14,7 +14,6 @@ const Menu = () => {
   const { selectedTable, addOrderToTable, updateOrderNotes } = tableStore();
   const { menu } = useSharedStore();
 
-  console.log(menu, "The whole menu")
   const menuItems = menu
 
   const getCurrentQuantity = (itemTitle) => {

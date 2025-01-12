@@ -3,9 +3,11 @@ import React from 'react'
 import TableComponent from './TableComponent'
 import StatusLegend from './StatusLegend'
 import { tableStore } from '../hooks/useStore'
+import { useSharedStore } from '../hooks/useSharedStore'
 
 const TableList = ({ isEditing, onReserve }) => {
-    const { tables, setDropdownTable } = tableStore();
+    const setDropdownTable = tableStore((state) => state.setDropdownTable)
+    const tables = useSharedStore((state) => state.tables);
 
     return (
         <Pressable
