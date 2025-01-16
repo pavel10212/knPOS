@@ -4,12 +4,15 @@ import {useMemo, useState} from 'react'
 import icons from '../../constants/icons'
 import PayItem from '../../components/PayItem'
 import TipButton from '../../components/TipButton'
+import {doesTableHaveOrders} from "../../utils/orderUtils";
+import {findOrdersForTable} from "../../utils/orderUtils";
 import PaymentMethod from '../../components/PaymentMethod'
 import {router} from 'expo-router'
 import {useSharedStore} from '../../hooks/useSharedStore'
+import order from "./order";
 
 const Payment = () => {
-    const tables = useSharedStore((state) => state.tables)
+    const orders = useSharedStore((state) => state.orders)
     const selectedTable = tableStore((state) => state.selectedTable)
     const updateSelectedTableOrders = tableStore((state) => state.updateSelectedTableOrders)
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
@@ -17,38 +20,35 @@ const Payment = () => {
     const addPaymentHistory = tableStore((state) => state.addPaymentHistory)
     const menu = useSharedStore((state) => state.menu)
 
+
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [tipPercentage, setTipPercentage] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [cashReceived, setCashReceived] = useState(0);
 
-    const findOrderOfTable = (tableNumber, tables) => {
-        const table = tables.find(table => table.table_num === tableNumber);
-        return table?.orders || [];
-    }
-
-    const parseTables = (tables) => {
-        return tables.map(table => ({
-            orders: table.orders || [],
-            table_num: table.table_num
-        }));
-    }
-
-    const parsedTables = parseTables(tables);
-    const parsedOrder = findOrderOfTable(selectedTable?.table_num, parsedTables);
+    const parsedOrder = findOrdersForTable(selectedTable?.table_num, orders);
 
 
-    const transformedOrder = parsedOrder?.[0]?.order_details
-        ? parsedOrder[0].order_details.map(item => {
-            const menuItem = menu?.menuItems?.find(mi => mi.menu_item_id === item.menu_item_id);
+    const transformAllOrders = (orders) => {
+        return orders.map((order) => {
+            console.log(order, "Order")
+            const items = order.order_details.map((item) => {
+                const menuItem = menu.menuItems.filter((menu) => menu.menu_item_id === item.menu_item_id);
+                return {
+                    id: item.menu_id,
+                    name: menuItem.name,
+                    price: menuItem.price,
+                    quantity: item.quantity,
+                };
+            });
             return {
-                id: item.menu_item_id,
-                name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
-                quantity: item.quantity,
-                price: menuItem?.price || 0
+                id: order.order_id,
+                items,
             };
-        })
-        : [];
+        });
+    };
+
+    const transformedOrder = transformAllOrders(parsedOrder);
 
     const [orderItems, setOrderItems] = useState(transformedOrder || []);
 
@@ -166,7 +166,7 @@ const Payment = () => {
                     <View className='p-4 pb-20'>
                         <View className='mb-4'>
                             <Text className='text-2xl font-semibold mb-4'>Payable Amount</Text>
-                            <Text className='text-xl font-medium text-[#D89F65]'>${total.toFixed(2)}</Text>
+                            <Text className='text-xl font-medium text-[#D89F65]'>{total}</Text>
 
                             {/* Tip Section */}
                             <View className='border-t border-dashed mt-4'/>
@@ -251,7 +251,7 @@ const Payment = () => {
                                 ))}
                                 <View className='flex flex-row justify-between pt-1 border-t border-dashed'>
                                     <Text className='font-bold'>Total</Text>
-                                    <Text className='font-bold text-[#D89F65]'>${total.toFixed(2)}</Text>
+                                    <Text className='font-bold text-[#D89F65]'>${total}</Text>
                                 </View>
                                 {selectedMethod === 'cash' && cashReceived > 0 && (
                                     <View className='flex flex-row justify-between pt-1 border-t border-dashed'>
@@ -259,7 +259,8 @@ const Payment = () => {
                                             className={`font-bold ${cashReceived > total ? 'text-green-500' : 'text-red-500'}`}>
                                             Change
                                         </Text>
-                                        <Text className={`${cashReceived > total ? 'text-green-500' : 'text-red-500'}`}>
+                                        <Text
+                                            className={`${cashReceived > total ? 'text-green-500' : 'text-red-500'}`}>
                                             ${Math.abs(cashReceived - total).toFixed(2)}
                                         </Text>
                                     </View>
