@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { Modal, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import {useEffect, useState} from "react";
+import {ActivityIndicator, Modal, Text, TouchableOpacity, View} from "react-native";
 import QRCode from 'react-native-qrcode-svg';
-import { tableStore } from "../hooks/useStore";
+import {tableStore} from "../hooks/useStore";
 
 const API_BASE = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 

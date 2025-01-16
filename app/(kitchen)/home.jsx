@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { ScrollView, View, Text, TouchableOpacity } from "react-native";
+import React, {useState} from "react";
+import {ScrollView, Text, TouchableOpacity, View} from "react-native";
 import Checkbox from "expo-checkbox";
 import Header from "../../components/Header";
+
 const KitchenHome = () => {
   const [orders, setOrders] = useState([
     {

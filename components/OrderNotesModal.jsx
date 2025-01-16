@@ -1,5 +1,5 @@
-import { View, Text, Modal, TextInput, TouchableOpacity } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import {Modal, Text, TextInput, TouchableOpacity, View} from 'react-native'
+import React, {useEffect, useState} from 'react'
 
 const OrderNotesModal = ({ visible, onClose, onSave, initialNotes = '' }) => {
     const [notes, setNotes] = useState(initialNotes);

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native'
+import {ScrollView, View} from 'react-native'
 import React from 'react'
 import TableOrders from '../../components/TableOrders'
 

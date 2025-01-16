@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native'
+import {ScrollView, Text, TouchableOpacity, View} from 'react-native'
 
 const OrderStatus = {
     PENDING: 'pending',

@@ -1,6 +1,6 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import {Text, TouchableOpacity, View} from 'react-native';
 import React from 'react';
-import { MaterialIcons } from '@expo/vector-icons';
+import {MaterialIcons} from '@expo/vector-icons';
 
 const PayItem = ({ item, addItem, subtractItem, deleteItem }) => {
     const subtotal = item.price * item.quantity;

@@ -1,11 +1,10 @@
-import { useSharedStore } from "./useSharedStore";
-import { localStore } from "./Storage/cache";
-import { create } from "zustand";
+import {useSharedStore} from "./useSharedStore";
+import {localStore} from "./Storage/cache";
+import {create} from "zustand";
 
 export const useMenuStore = create((set) => ({
   fetchMenu: async () => {
     const setMenu = useSharedStore.getState().setMenu;
-
     // START: Cache-based logic (REMOVE IN PRODUCTION)
     try {
       const cachedMenu = localStore.getString("menu");

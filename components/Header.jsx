@@ -1,6 +1,5 @@
-import { View, Text, Image, TouchableOpacity } from 'react-native'
+import {Image, Text, TextInput, TouchableOpacity, View} from 'react-native'
 import React from 'react'
-import { TextInput } from 'react-native'
 import icons from '../constants/icons'
 
 const Header = () => {

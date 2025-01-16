@@ -1,7 +1,7 @@
-import { router } from 'expo-router';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { loginStore } from '../hooks/useStore';
+import {router} from 'expo-router';
+import {Image, Text, TouchableOpacity, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {loginStore} from '../hooks/useStore';
 import logo from '../assets/icons/logo.png';
 
 function Index() {

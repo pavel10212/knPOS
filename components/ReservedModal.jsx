@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, TextInput, Image } from 'react-native'
-import React, { useState } from 'react'
+import {Image, Text, TextInput, TouchableOpacity, View} from 'react-native'
+import React, {useState} from 'react'
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import icons from '../constants/icons';
 

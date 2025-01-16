@@ -1,16 +1,15 @@
-import { View, Text, FlatList, TouchableOpacity, Image, TextInput, Alert } from 'react-native'
-import { tableStore } from '../../hooks/useStore'
-import { useState, useMemo, useEffect } from 'react'
-import { useLocalSearchParams } from 'expo-router'
+import {Alert, FlatList, Text, TextInput, TouchableOpacity, View} from 'react-native'
+import {tableStore} from '../../hooks/useStore'
+import {useMemo, useState} from 'react'
 import icons from '../../constants/icons'
 import PayItem from '../../components/PayItem'
 import TipButton from '../../components/TipButton'
 import PaymentMethod from '../../components/PaymentMethod'
-import { router } from 'expo-router'
-import { useSharedStore } from '../../hooks/useSharedStore'
+import {router} from 'expo-router'
+import {useSharedStore} from '../../hooks/useSharedStore'
 
 const Payment = () => {
-    const { orderData } = useLocalSearchParams();
+    const tables = useSharedStore((state) => state.tables)
     const selectedTable = tableStore((state) => state.selectedTable)
     const updateSelectedTableOrders = tableStore((state) => state.updateSelectedTableOrders)
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
@@ -22,18 +21,36 @@ const Payment = () => {
     const [tipPercentage, setTipPercentage] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [cashReceived, setCashReceived] = useState(0);
-    const parsedOrder = JSON.parse(orderData)
 
-    const transformedOrder = parsedOrder[0].orderDetails?.map(item => {
-        const menuItem = menu?.menuItems?.find(mi => mi.menu_item_id === item.menu_item_id);
-        return {
-            id: item.menu_item_id,
-            name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
-            quantity: item.quantity,
-            price: menuItem?.price || 0
-        }
-    })
-    console.log(transformedOrder, "new")
+    const findOrderOfTable = (tableNumber, tables) => {
+        const table = tables.find(table => table.table_num === tableNumber);
+        return table?.orders || [];
+    }
+
+    const parseTables = (tables) => {
+        return tables.map(table => ({
+            orders: table.orders || [],
+            table_num: table.table_num
+        }));
+    }
+
+    const parsedTables = parseTables(tables);
+    const parsedOrder = findOrderOfTable(selectedTable?.table_num, parsedTables);
+
+
+    const transformedOrder = parsedOrder?.[0]?.order_details
+        ? parsedOrder[0].order_details.map(item => {
+            const menuItem = menu?.menuItems?.find(mi => mi.menu_item_id === item.menu_item_id);
+            return {
+                id: item.menu_item_id,
+                name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
+                quantity: item.quantity,
+                price: menuItem?.price || 0
+            };
+        })
+        : [];
+
+    const [orderItems, setOrderItems] = useState(transformedOrder || []);
 
     if (!selectedTable) {
         return (
@@ -42,8 +59,6 @@ const Payment = () => {
             </View>
         );
     }
-
-    const [orderItems, setOrderItems] = useState(transformedOrder)
 
     const calculations = useMemo(() => {
         const subtotal = orderItems?.reduce((sum, item) =>
@@ -100,7 +115,7 @@ const Payment = () => {
     const addItem = (item) => {
         setOrderItems(orderItems.map(i =>
             i.id === item.id
-                ? { ...i, quantity: i.quantity + 1 }
+                ? {...i, quantity: i.quantity + 1}
                 : i
         ));
     }
@@ -109,13 +124,13 @@ const Payment = () => {
         if (item.quantity <= 1) return;
         setOrderItems(orderItems.map(i =>
             i.id === item.id
-                ? { ...i, quantity: i.quantity - 1 }
+                ? {...i, quantity: i.quantity - 1}
                 : i
         ));
     }
 
 
-    const { subtotal, tip, serviceCharge, discountAmount, vat, total } = calculations;
+    const {subtotal, tip, serviceCharge, discountAmount, vat, total} = calculations;
 
     return (
         <View className='flex-1 bg-white'>
@@ -136,11 +151,11 @@ const Payment = () => {
                         </View>
                         <FlatList
                             data={orderItems}
-                            renderItem={({ item }) => <PayItem
+                            renderItem={({item}) => <PayItem
                                 addItem={addItem}
                                 subtractItem={subtractItem}
                                 deleteItem={deleteItem}
-                                item={item} />}
+                                item={item}/>}
                             keyExtractor={(item) => item.id.toString()}
                         />
                     </View>
@@ -154,7 +169,7 @@ const Payment = () => {
                             <Text className='text-xl font-medium text-[#D89F65]'>${total.toFixed(2)}</Text>
 
                             {/* Tip Section */}
-                            <View className='border-t border-dashed mt-4' />
+                            <View className='border-t border-dashed mt-4'/>
                             <View className='mt-4 flex flex-row items-center justify-start gap-4'>
                                 <Text className='font-semibold'>Add Tip</Text>
                                 <TipButton
@@ -174,7 +189,7 @@ const Payment = () => {
                             </View>
 
                             {/* Payment Methods */}
-                            <View className='border-t border-dashed mt-4' />
+                            <View className='border-t border-dashed mt-4'/>
                             <View className='mt-4 flex flex-row items-center justify-center gap-4'>
                                 <PaymentMethod
                                     method="Cash"
@@ -192,7 +207,8 @@ const Payment = () => {
 
                             {/* Input Fields */}
                             <View className='mt-4 space-y-0'>
-                                <View className='w-full flex flex-row h-[70px] items-center bg-[#EAF0F0] p-4 rounded-lg'>
+                                <View
+                                    className='w-full flex flex-row h-[70px] items-center bg-[#EAF0F0] p-4 rounded-lg'>
                                     <Text>Add Discount (%)</Text>
                                     <TextInput
                                         className='border-b text-center rounded-lg w-[100px] ml-auto'
@@ -203,7 +219,8 @@ const Payment = () => {
                                     />
                                 </View>
                                 {selectedMethod === 'cash' && (
-                                    <View className='w-full flex flex-row h-[70px] items-center bg-[#EAF0F0] p-4 rounded-lg mt-2'>
+                                    <View
+                                        className='w-full flex flex-row h-[70px] items-center bg-[#EAF0F0] p-4 rounded-lg mt-2'>
                                         <Text>Cash Received</Text>
                                         <TextInput
                                             className='border-b text-center rounded-lg w-[100px] ml-auto'
@@ -219,12 +236,12 @@ const Payment = () => {
                             {/* Summary */}
                             <View className='mt-2'>
                                 {[
-                                    { label: 'Subtotal', value: subtotal },
-                                    { label: `Tips (${tipPercentage}%)`, value: tip },
-                                    { label: 'Service Charge', value: serviceCharge },
-                                    { label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true },
-                                    { label: 'VAT (10%)', value: vat },
-                                ].map(({ label, value, isNegative }) => (
+                                    {label: 'Subtotal', value: subtotal},
+                                    {label: `Tips (${tipPercentage}%)`, value: tip},
+                                    {label: 'Service Charge', value: serviceCharge},
+                                    {label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true},
+                                    {label: 'VAT (10%)', value: vat},
+                                ].map(({label, value, isNegative}) => (
                                     <View key={label} className='flex flex-row justify-between'>
                                         <Text className='text-gray-600 text-sm'>{label}</Text>
                                         <Text className={`font-medium text-sm ${isNegative ? 'text-red-500' : ''}`}>
@@ -238,7 +255,8 @@ const Payment = () => {
                                 </View>
                                 {selectedMethod === 'cash' && cashReceived > 0 && (
                                     <View className='flex flex-row justify-between pt-1 border-t border-dashed'>
-                                        <Text className={`font-bold ${cashReceived > total ? 'text-green-500' : 'text-red-500'}`}>
+                                        <Text
+                                            className={`font-bold ${cashReceived > total ? 'text-green-500' : 'text-red-500'}`}>
                                             Change
                                         </Text>
                                         <Text className={`${cashReceived > total ? 'text-green-500' : 'text-red-500'}`}>

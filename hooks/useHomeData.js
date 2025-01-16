@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { tableStore } from "./useStore";
-import { useOrderStore } from "./useOrderStore";
-import { useMenuStore } from "./useMenuStore";
+import {useEffect} from "react";
+import {tableStore} from "./useStore";
+import {useOrderStore} from "./useOrderStore";
+import {useMenuStore} from "./useMenuStore";
 
 export const useHomeData = () => {
   const fetchTables = tableStore((state) => state.fetchTables);

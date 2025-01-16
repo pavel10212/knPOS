@@ -1,5 +1,5 @@
-import { SplashScreen, Stack } from "expo-router";
-import { useEffect } from "react";
+import {SplashScreen, Stack} from "expo-router";
+import {useEffect} from "react";
 import "../global.css"
 
 SplashScreen.preventAutoHideAsync();

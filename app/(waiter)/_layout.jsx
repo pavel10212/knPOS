@@ -1,8 +1,8 @@
-import { Tabs } from "expo-router";
-import { View, Image, Text } from "react-native";
+import {Tabs} from "expo-router";
+import {Image, Text, View} from "react-native";
 import icons from "../../constants/icons";
 import Header from "../../components/Header";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 const TabIcon = ({
     icon,

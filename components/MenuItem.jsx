@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity } from 'react-native'
+import {Image, Text, TouchableOpacity, View} from 'react-native'
 import React from 'react'
 
 const MenuItem = ({ title, category, price, image, onChangeQuantity, currentQuantity = 0 }) => {

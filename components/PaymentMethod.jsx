@@ -1,4 +1,4 @@
-import { TouchableOpacity, Image, Text } from "react-native";
+import {Image, Text, TouchableOpacity} from "react-native";
 
 
 const PaymentMethod = ({ method, icon, selected, onSelect }) => (

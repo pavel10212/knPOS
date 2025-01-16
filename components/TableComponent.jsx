@@ -1,6 +1,6 @@
-import { Text, TouchableOpacity, View, TouchableWithoutFeedback } from 'react-native'
+import {Text, TouchableOpacity, TouchableWithoutFeedback, View} from 'react-native'
 import React from 'react'
-import { tableStore } from '../hooks/useStore';
+import {tableStore} from '../hooks/useStore';
 
 const TableComponent = ({
     table_num,

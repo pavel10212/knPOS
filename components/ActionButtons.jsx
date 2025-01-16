@@ -13,12 +13,7 @@ const ActionButtons = ({ onPrintQR, order }) => (
             </TouchableOpacity>
             <TouchableOpacity
                 className='bg-[#64D393] rounded-lg flex-1 flex justify-center items-center'
-                onPress={() =>
-                    router.push({
-                        pathname: '/payment',
-                        params: { orderData: JSON.stringify(order) }
-                    })}
-            >
+                onPress={router.push('/payment')}>
                 <Text className='text-white font-bold text-lg'>Pay</Text>
             </TouchableOpacity>
         </View>
