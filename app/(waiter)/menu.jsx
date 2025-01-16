@@ -66,6 +66,7 @@ const Menu = () => {
             completion_date_time: null,
             order_details: JSON.stringify(temporaryOrder.map((item) => ({
                 menu_item_id: item.id,
+                status: 'pending',
                 quantity: item.quantity,
             }))),
         };
