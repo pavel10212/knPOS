@@ -1,7 +1,11 @@
 export const doesTableHaveOrders = (tableNumber, orders) => {
-    return orders.some((order) => order.table_num === tableNumber)
+    const tableOrders = orders.filter((order) => order.table_num === tableNumber)
+    const incompleteOrders = tableOrders.filter((order) => order.order_status !== 'Completed')
+    return incompleteOrders.length > 0
 }
 
 export const findOrdersForTable = (tableNumber, orders) => {
-    return orders.filter((order) => order.table_num === tableNumber)
+    const allOrders = orders.filter((order) => order.table_num === tableNumber)
+    const incompleteOrders = allOrders.filter((order) => order.order_status !== 'Completed')
+    return incompleteOrders
 }

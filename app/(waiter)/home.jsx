@@ -1,16 +1,16 @@
-import {FlatList, Text, View} from 'react-native';
-import React, {useState} from 'react';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { FlatList, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import TableList from '../../components/TableList';
 import QRModal from '../../components/QRModal';
 import OrderItem from '../../components/OrderItem';
 import ReservedModal from '../../components/ReservedModal';
 import OrderHeader from '../../components/OrderHeader';
 import ActionButtons from '../../components/ActionButtons';
-import {tableStore} from '../../hooks/useStore';
-import {useHomeData} from '../../hooks/useHomeData';
-import {useSharedStore} from "../../hooks/useSharedStore";
-import {doesTableHaveOrders, findOrdersForTable} from "../../utils/orderUtils";
+import { tableStore } from '../../hooks/useStore';
+import { useHomeData } from '../../hooks/useHomeData';
+import { useSharedStore } from "../../hooks/useSharedStore";
+import { doesTableHaveOrders, findOrdersForTable } from "../../utils/orderUtils";
 
 
 const Home = () => {
@@ -25,10 +25,10 @@ const Home = () => {
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
     const handleReservation = (tableNumber) => {
-        setReservationModal({visible: true, tableNumber});
+        setReservationModal({ visible: true, tableNumber });
     };
 
-    const renderOrder = ({item}) => {
+    const renderOrder = ({ item }) => {
         return (
             <OrderItem
                 key={item.order_id}
@@ -51,12 +51,12 @@ const Home = () => {
                     <View className="flex flex-row h-[60px] items-center justify-start border-hairline">
                         <Text className="ml-5 font-bold text-2xl">Table List</Text>
                     </View>
-                    <TableList isEditing={false} onReserve={handleReservation}/>
+                    <TableList isEditing={false} onReserve={handleReservation} />
                 </View>
 
                 {/* Right side Orders section */}
                 <View className="w-[300px] bg-white border-hairline flex flex-col">
-                    <OrderHeader selectedTable={selectedTable}/>
+                    <OrderHeader selectedTable={selectedTable} />
                     <View className="flex-1">
                         {selectedTable ? (
                             doesTableHaveOrders(selectedTable.table_num, orders) ? (
@@ -64,7 +64,7 @@ const Home = () => {
                                     data={findOrdersForTable(selectedTable.table_num, orders)}
                                     renderItem={renderOrder}
                                     keyExtractor={(item) => item.order_id.toString()}
-                                    contentContainerStyle={{padding: 16}}
+                                    contentContainerStyle={{ padding: 16 }}
                                     showsVerticalScrollIndicator={true}
                                 />
                             ) : (
@@ -75,19 +75,19 @@ const Home = () => {
                         )}
                     </View>
                     {selectedTable ? (
-                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} order={selectedTable?.orders || []}/>
+                        <ActionButtons onPrintQR={() => setQrModalVisible(true)} order={selectedTable?.orders || []} />
                     ) : null}
                 </View>
             </View>
             <ReservedModal
                 visible={reservationModal.visible}
                 tableNumber={reservationModal.tableNumber}
-                onClose={() => setReservationModal({visible: false, tableNumber: null})}
+                onClose={() => setReservationModal({ visible: false, tableNumber: null })}
                 onConfirm={(reservationDetails) => {
-                    const {updateTableReservation} = tableStore.getState();
+                    const { updateTableReservation } = tableStore.getState();
                     updateTableReservation(reservationModal.tableNumber, reservationDetails);
                     setDropdownTable(null);
-                    setReservationModal({visible: false, tableNumber: null});
+                    setReservationModal({ visible: false, tableNumber: null });
                 }}
             />
 

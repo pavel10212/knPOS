@@ -16,11 +16,6 @@ export const tableStore = create((set, get) => ({
     reservationModal: {visible: false, tableNumber: null},
     paymentHistory: [],
 
-    // Use shared store for tables
-    get tables() {
-        return useSharedStore.getState().tables;
-    },
-
     // Table Selection
     selectTable: (table) => {
         set({selectedTable: table});
@@ -30,10 +25,10 @@ export const tableStore = create((set, get) => ({
     updateSelectedTable: (table) => set({selectedTable: table}),
 
     // Table Status
-    updateTableStatus: async (tableNumber, newStatus) => {
+    updateTableStatus: async (table_num, newStatus) => {
         try {
             console.log(
-                `📡 Sending PUT request to /table-update for table ${tableNumber} with status ${newStatus}`
+                `📡 Sending PUT request to /table-update for table ${table_num} with status ${newStatus}`
             );
             const response = await fetch(
                 `http://${process.env.EXPO_PUBLIC_IP}:3000/table-update`,
@@ -41,7 +36,7 @@ export const tableStore = create((set, get) => ({
                     method: "PUT",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({
-                        table_num: tableNumber,
+                        table_num: table_num,
                         status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
                     }),
                 }
@@ -52,20 +47,24 @@ export const tableStore = create((set, get) => ({
                 console.error("❌ Server response error:", errorData);
                 throw new Error("Failed to update table status");
             }
-            console.log(`✅ Table ${tableNumber} status updated successfully`);
+            console.log(`✅ Table ${table_num} status updated successfully`);
+
+            const tables = useSharedStore.getState().tables;
+
             set((state) => {
-                const updatedTables = state.tables.map((table) =>
-                    table.table_num === tableNumber
+                const updatedTables = tables.map((table) =>
+                    table.table_num === table_num
                         ? {
                             ...table,
                             status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
                         }
                         : table
                 );
+                useSharedStore.getState().setTables(updatedTables);
                 return {
                     tables: updatedTables,
                     selectedTable:
-                        state.selectedTable?.table_num === tableNumber
+                        state.selectedTable?.table_num === table_num
                             ? {
                                 ...state.selectedTable,
                                 status:
@@ -106,13 +105,6 @@ export const tableStore = create((set, get) => ({
             };
         }),
 
-    // Orders
-    updateSelectedTableOrders: (orders) =>
-        set((state) => ({
-            selectedTable: state.selectedTable
-                ? {...state.selectedTable, orders}
-                : null,
-        })),
 
     // Data Management
     fetchTables: async () => {
