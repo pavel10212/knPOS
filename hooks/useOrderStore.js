@@ -1,7 +1,7 @@
-import {create} from "zustand";
+import { create } from "zustand";
 import io from "socket.io-client";
-import {useSharedStore} from "./useSharedStore";
-import {localStore} from "./Storage/cache";
+import { useSharedStore } from "./useSharedStore";
+import { localStore } from "./Storage/cache";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
@@ -11,6 +11,8 @@ export const useOrderStore = create((set, get) => ({
     orderHistory: [],
     error: null,
     socket: null,
+    selectedOrder: null,
+    setSelectedOrder: (order) => set({ selectedOrder: order }),
 
     fetchOrders: async () => {
         const setOrders = useSharedStore.getState().setOrders;
@@ -26,7 +28,7 @@ export const useOrderStore = create((set, get) => ({
             console.log("⏳ No cached orders found, fetching from server...");
         } catch (error) {
             console.error("❌ Error accessing orders cache:", error);
-            set({error: "Error accessing orders cache"});
+            set({ error: "Error accessing orders cache" });
         }
 
         try {
@@ -42,12 +44,12 @@ export const useOrderStore = create((set, get) => ({
             return data;
         } catch (error) {
             console.error("❌ Error fetching orders:", error);
-            set({error: "Error fetching orders"});
+            set({ error: "Error fetching orders" });
         }
     },
 
     initializeSocket: () => {
-        const {socket} = get();
+        const { socket } = get();
         if (socket) return;
 
         const newSocket = io(SOCKET_URL, {
@@ -64,7 +66,7 @@ export const useOrderStore = create((set, get) => ({
 
         newSocket.on("connect_error", (error) => {
             console.error("Socket connection error:", error);
-            set({error: "Socket connection error"});
+            set({ error: "Socket connection error" });
         });
 
         newSocket.on("new-order", async (newOrder) => {
@@ -72,20 +74,20 @@ export const useOrderStore = create((set, get) => ({
             await get().fetchOrders();
         });
 
-        set({socket: newSocket});
+        set({ socket: newSocket });
         return () => {
             if (newSocket) {
                 newSocket.disconnect();
-                set({socket: null});
+                set({ socket: null });
             }
         };
     },
 
     disconnectSocket: () => {
-        const {socket} = get();
+        const { socket } = get();
         if (socket) {
             socket.disconnect();
-            set({socket: null});
+            set({ socket: null });
         }
     },
 }));

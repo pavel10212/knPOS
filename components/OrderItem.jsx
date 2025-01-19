@@ -1,39 +1,50 @@
-import {Text, TouchableOpacity, View} from 'react-native';
-import {useState} from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { useState, useMemo, useCallback } from 'react';
 import OrderNotesModal from './OrderNotesModal';
-import {useSharedStore} from '../hooks/useSharedStore';
+import { useSharedStore } from '../hooks/useSharedStore';
+import { router } from 'expo-router';
 
 const OrderItem = ({ order, onNotesChange }) => {
-    const [selected, setSelected] = useState([]);
+    const [isExpanded, setIsExpanded] = useState(false);
     const [notesModal, setNotesModal] = useState(false);
     const [editingNoteIndex, setEditingNoteIndex] = useState(0);
     const menu = useSharedStore((state) => state.menu);
 
-    const handleDropdownClick = () => {
-        if (selected.includes(order.orderId)) {
-            setSelected(selected.filter((id) => id !== order.orderId));
-        } else {
-            setSelected([...selected, order.orderId]);
-        }
-    };
+    const handleDropdownClick = useCallback(() => {
+        setIsExpanded(prev => !prev);
+    }, []);
 
-    const handleEditNotes = (index) => {
+    const handleEditOrder = useCallback(() => {
+        router.push({
+            pathname: 'menu',
+            params: { order: order.order_id },
+        });
+    }, [order.order_id]);
+
+    const handleEditNotes = useCallback((index) => {
         setEditingNoteIndex(index);
         setNotesModal(true);
-    };
+    }, []);
 
-    const orderItems = order.order_details?.map((item) => {
-        const menuItem = menu?.menuItems?.find(
-            (mi) => mi.menu_item_id === item.menu_item_id
-        );
-        return {
-            id: item.menu_item_id,
-            name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
-            quantity: item.quantity,
-            price: menuItem?.price || 0,
-        };
-    });
+    const orderItems = useMemo(() => 
+        order.order_details?.map((item) => {
+            const menuItem = menu?.menuItems?.find(
+                (mi) => mi.menu_item_id === item.menu_item_id
+            );
+            return {
+                id: item.menu_item_id,
+                name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
+                quantity: item.quantity,
+                price: menuItem?.price || 0,
+            };
+        }),
+        [order.order_details, menu?.menuItems]
+    );
 
+    const handleSaveNotes = useCallback((notes) => {
+        onNotesChange(editingNoteIndex, notes);
+        setNotesModal(false);
+    }, [editingNoteIndex, onNotesChange]);
 
     return (
         <View className="rounded-xl bg-white shadow-md mb-4 p-4">
@@ -42,12 +53,15 @@ const OrderItem = ({ order, onNotesChange }) => {
                 className="flex flex-row items-center justify-between"
             >
                 <Text className="font-semibold text-lg">Order ID: {order.order_id}</Text>
+                <TouchableOpacity onPress={() => handleEditOrder()}>
+                    <Text className="text-blue-600">Edit</Text>
+                </TouchableOpacity>
             </TouchableOpacity>
 
-            {selected.includes(order.orderId) && (
+            {isExpanded && (
                 <View className="mt-4">
                     {orderItems?.map((item, index) => (
-                        <View key={index} className="py-2 border-t border-gray-200">
+                        <View key={item.id} className="py-2 border-t border-gray-200">
                             <View className="flex flex-row justify-between items-center">
                                 <Text className="font-medium text-base">{item.name}</Text>
                                 <Text className="font-medium text-sm">
@@ -67,7 +81,7 @@ const OrderItem = ({ order, onNotesChange }) => {
                             </TouchableOpacity>
                         </View>
                     ))}
-                    <View className="py-4 border-t border-gray-200">
+                    <View className="py-4 border-t flex flex-row justify-between border-gray-200">
                         <Text className="font-bold text-right text-lg">
                             Total: {order.total}
                         </Text>
@@ -78,10 +92,7 @@ const OrderItem = ({ order, onNotesChange }) => {
             <OrderNotesModal
                 visible={notesModal}
                 onClose={() => setNotesModal(false)}
-                onSave={(notes) => {
-                    onNotesChange(editingNoteIndex, notes);
-                    setNotesModal(false);
-                }}
+                onSave={handleSaveNotes}
                 initialNotes={order.notes?.[editingNoteIndex] || ''}
             />
         </View>

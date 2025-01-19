@@ -1,76 +1,91 @@
 import { Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { tableStore } from '../../hooks/useStore'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import icons from '../../constants/icons'
 import PayItem from '../../components/PayItem'
 import TipButton from '../../components/TipButton'
-import { doesTableHaveOrders } from "../../utils/orderUtils";
-import { findOrdersForTable } from "../../utils/orderUtils";
+import { findOrdersForTable } from "../../utils/orderUtils"
 import PaymentMethod from '../../components/PaymentMethod'
 import { router } from 'expo-router'
 import { useSharedStore } from '../../hooks/useSharedStore'
-import order from "./order";
+import DiscountButton from '../../components/DiscountButton'
 
 const Payment = () => {
     const orders = useSharedStore((state) => state.orders)
     const selectedTable = tableStore((state) => state.selectedTable)
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
-    const clearTable = tableStore((state) => state.clearTable)
-    const addPaymentHistory = tableStore((state) => state.addPaymentHistory)
     const menu = useSharedStore((state) => state.menu)
     const setOrders = useSharedStore((state) => state.setOrders)
-
 
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [tipPercentage, setTipPercentage] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [cashReceived, setCashReceived] = useState(0);
 
-    const parsedOrder = findOrdersForTable(selectedTable?.table_num, orders);
+    const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20];
 
+    const parsedOrder = useMemo(() =>
+        findOrdersForTable(selectedTable?.table_num, orders),
+        [selectedTable?.table_num, orders]
+    );
 
-    const transformAllOrders = (orders) => {
-        const transformedOrders = orders.flatMap((order) => {
-            return order.order_details.map((orderDetail) => {
-                const menuItem = menu.menuItems.find((item) => item.menu_item_id === orderDetail.menu_item_id);
+    // Memoize order transformation
+    const transformedOrder = useMemo(() => {
+        if (!parsedOrder?.length) return [];
+
+        return parsedOrder.flatMap((order) =>
+            order.order_details.map((orderDetail) => {
+                const menuItem = menu.menuItems?.find((item) =>
+                    item.menu_item_id === orderDetail.menu_item_id
+                );
                 return {
                     id: `${order.order_id}-${orderDetail.menu_item_id}`,
                     name: menuItem?.menu_item_name,
                     price: menuItem?.price,
                     quantity: orderDetail.quantity
                 };
-            });
-        });
-        return transformedOrders;
-    };
-
-
-    const transformedOrder = transformAllOrders(parsedOrder);
+            })
+        );
+    }, [parsedOrder, menu.menuItems]);
 
     const [orderItems, setOrderItems] = useState(transformedOrder || []);
 
-    if (!selectedTable) {
-        return (<View className="flex-1 justify-center items-center">
-            <Text>Please select a table first</Text>
-        </View>);
-    }
-
+    // Memoize calculations
     const calculations = useMemo(() => {
-        const subtotal = orderItems?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
+        const subtotal = orderItems?.reduce((sum, item) =>
+            sum + (item.price * item.quantity), 0) || 0;
 
-        return {
-            subtotal,
-            tip: subtotal * (tipPercentage / 100),
-            serviceCharge: 0,
-            discountAmount: subtotal * (discount / 100),
-            vat: subtotal * 0.1,
-            get total() {
-                return this.subtotal + this.tip + this.serviceCharge - this.discountAmount + this.vat;
-            }
-        };
+        const tip = subtotal * (tipPercentage / 100);
+        const discountAmount = subtotal * (discount / 100);
+        const vat = subtotal * 0.1;
+        const total = subtotal + tip - discountAmount + vat;
+
+        return { subtotal, tip, serviceCharge: 0, discountAmount, vat, total };
     }, [orderItems, tipPercentage, discount]);
 
-    const finishPayment = async () => {
+    // Destructure values from calculations for use in render
+    const { subtotal, tip, serviceCharge, discountAmount, vat, total } = calculations;
+
+    // Optimize item manipulation callbacks
+    const deleteItem = useCallback((item) => {
+        setOrderItems(prev => prev.filter(i => i.id !== item.id));
+    }, []);
+
+    const addItem = useCallback((item) => {
+        setOrderItems(prev => prev.map(i =>
+            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+        ));
+    }, []);
+
+    const subtractItem = useCallback((item) => {
+        if (item.quantity <= 1) return;
+        setOrderItems(prev => prev.map(i =>
+            i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
+        ));
+    }, []);
+
+    // Optimize finish payment callback
+    const finishPayment = useCallback(async () => {
         if (!selectedMethod) {
             Alert.alert('Error', 'Please select a payment method');
             return;
@@ -82,24 +97,20 @@ const Payment = () => {
         }
 
         try {
-            // Update each order for this table
-            const updatePromises = parsedOrder.map(async (order) => {
-                const updatedOrderDetails = JSON.stringify(order.order_details.map((orderDetail) => {
-                    const updatedItem = orderItems.find(
-                        (item) => item.id === `${order.order_id}-${orderDetail.menu_item_id}`
-                    );
-                    return {
+            const updatedOrders = await Promise.all(parsedOrder.map(async (order) => {
+                const updatedOrderDetails = JSON.stringify(
+                    order.order_details.map((orderDetail) => ({
                         status: 'completed',
-                        quantity: updatedItem ? updatedItem.quantity : orderDetail.quantity,
+                        quantity: orderItems.find(item =>
+                            item.id === `${order.order_id}-${orderDetail.menu_item_id}`
+                        )?.quantity || orderDetail.quantity,
                         menu_item_id: orderDetail.menu_item_id,
-                    };
-                }));
+                    }))
+                );
 
                 const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         order_id: order.order_id,
                         total_amount: calculations.total,
@@ -109,49 +120,31 @@ const Payment = () => {
                     }),
                 });
 
-                if (!response.ok) {
-                    throw new Error('Failed to update order');
-                }
-
+                if (!response.ok) throw new Error('Failed to update order');
                 return response.json();
-            });
+            }));
 
-            const updatedOrders = await Promise.all(updatePromises);
-            console.log('Updated orders:', updatedOrders);
-
-            // Update local state
-            setOrders([
-                ...prevOrders.filter((order) => order.table_num !== selectedTable.table_num),
+            setOrders(prev => [
+                ...prev.filter(order => order.table_num !== selectedTable.table_num),
                 ...updatedOrders
             ]);
 
-            // Update table status
             await updateTableStatus(selectedTable.table_num, 'Available');
-
-            // Navigate back to home
             router.push('/home');
 
         } catch (error) {
             console.error('Error updating orders:', error);
             Alert.alert('Error', 'Failed to complete payment');
         }
-    };
+    }, [selectedMethod, cashReceived, calculations.total, parsedOrder, orderItems, selectedTable]);
 
-
-    const deleteItem = (item) => {
-        setOrderItems(orderItems.filter(i => i.id !== item.id));
+    if (!selectedTable) {
+        return (
+            <View className="flex-1 justify-center items-center">
+                <Text>Please select a table first</Text>
+            </View>
+        );
     }
-
-    const addItem = (item) => {
-        setOrderItems(orderItems.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i));
-    }
-
-    const subtractItem = (item) => {
-        if (item.quantity <= 1) return;
-        setOrderItems(orderItems.map(i => i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i));
-    }
-
-    const { subtotal, tip, serviceCharge, discountAmount, vat, total } = calculations;
 
     return (<View className='flex-1 bg-white'>
         <View className='flex flex-row flex-1'>
@@ -186,7 +179,9 @@ const Payment = () => {
                 <View className='p-4 pb-20'>
                     <View className='mb-4'>
                         <Text className='text-2xl font-semibold mb-4'>Payable Amount</Text>
-                        <Text className='text-xl font-medium text-[#D89F65]'>${total}</Text>
+                        <Text className='text-xl font-medium text-[#D89F65]'>
+                            ${total.toFixed(2)}
+                        </Text>
 
                         {/* Tip Section */}
                         <View className='border-t border-dashed mt-4' />
@@ -225,16 +220,23 @@ const Payment = () => {
 
                         {/* Input Fields */}
                         <View className='mt-4 space-y-0'>
-                            <View
-                                className='w-full flex flex-row h-[70px] items-center bg-[#EAF0F0] p-4 rounded-lg'>
-                                <Text>Add Discount (%)</Text>
-                                <TextInput
-                                    className='border-b text-center rounded-lg w-[100px] ml-auto'
-                                    placeholder='0%'
-                                    value={discount.toString()}
-                                    onChangeText={(text) => setDiscount(parseFloat(text) || 0)}
-                                    keyboardType="numeric"
+                            <View className='border-t border-dashed mt-4' />
+                            <View className='mt-4 flex flex-row items-center justify-start gap-4'>
+                                <Text className='font-semibold'>Discount</Text>
+                                <DiscountButton
+                                    percentage={0}
+                                    selected={discount === 0}
+                                    onSelect={setDiscount}
+                                    text="0%"
                                 />
+                                {DISCOUNT_OPTIONS.slice(1).map(percentage => (
+                                    <DiscountButton
+                                        key={percentage}
+                                        percentage={percentage}
+                                        selected={discount === percentage}
+                                        onSelect={setDiscount}
+                                    />
+                                ))}
                             </View>
                             {selectedMethod === 'cash' && (<View
                                 className='w-full flex flex-row h-[70px] items-center bg-[#EAF0F0] p-4 rounded-lg mt-2'>
@@ -251,11 +253,13 @@ const Payment = () => {
 
                         {/* Summary */}
                         <View className='mt-2'>
-                            {[{ label: 'Subtotal', value: subtotal }, {
-                                label: `Tips (${tipPercentage}%)`, value: tip
-                            }, { label: 'Service Charge', value: serviceCharge }, {
-                                label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true
-                            }, { label: 'VAT (10%)', value: vat },].map(({ label, value, isNegative }) => (
+                            {[
+                                { label: 'Subtotal', value: subtotal },
+                                { label: `Tips (${tipPercentage}%)`, value: tip },
+                                { label: 'Service Charge', value: serviceCharge },
+                                { label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true },
+                                { label: 'VAT (10%)', value: vat },
+                            ].map(({ label, value, isNegative }) => (
                                 <View key={label} className='flex flex-row justify-between'>
                                     <Text className='text-gray-600 text-sm'>{label}</Text>
                                     <Text className={`font-medium text-sm ${isNegative ? 'text-red-500' : ''}`}>
@@ -264,7 +268,9 @@ const Payment = () => {
                                 </View>))}
                             <View className='flex flex-row justify-between pt-1 border-t border-dashed'>
                                 <Text className='font-bold'>Total</Text>
-                                <Text className='font-bold text-[#D89F65]'>${total}</Text>
+                                <Text className='font-bold text-[#D89F65]'>
+                                    ${total.toFixed(2)}
+                                </Text>
                             </View>
                             {selectedMethod === 'cash' && cashReceived > 0 && (
                                 <View className='flex flex-row justify-between pt-1 border-t border-dashed'>
