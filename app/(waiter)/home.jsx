@@ -21,7 +21,6 @@ const Home = () => {
     const setDropdownTable = tableStore((state) => state.setDropdownTable);
     const orders = useSharedStore((state) => state.orders);
 
-
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
     const handleReservation = (tableNumber) => {

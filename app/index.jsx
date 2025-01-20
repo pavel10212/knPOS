@@ -1,11 +1,15 @@
-import {router} from 'expo-router';
-import {Image, Text, TouchableOpacity, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {loginStore} from '../hooks/useStore';
+import { router } from 'expo-router';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { loginStore } from '../hooks/useStore';
 import logo from '../assets/icons/logo.png';
 
 function Index() {
-  const { setRole, role, isLoggedIn, setIsLoggedIn } = loginStore();
+  const setRole = loginStore((state) => state.setRole)
+  const role = loginStore((state) => state.role)
+  const isLoggedIn = loginStore((state) => state.isLoggedIn)
+  const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn)
+
 
   if (isLoggedIn) {
     router.replace(`/(${role})/home`);

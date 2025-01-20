@@ -1,8 +1,10 @@
-import {Tabs} from "expo-router";
-import {Image, Text, View} from "react-native";
+import { Tabs } from "expo-router";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import icons from "../../constants/icons";
+import { router } from "expo-router";
 import Header from "../../components/Header";
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { loginStore } from "../../hooks/useStore";
 
 const TabIcon = ({
     icon,
@@ -26,6 +28,8 @@ const TabIcon = ({
 }
 
 export default function TabsLayout() {
+    const setRole = loginStore((state) => state.setRole)
+    const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn)
     return (
         <SafeAreaView className='flex-1'>
             <Header />
@@ -95,9 +99,27 @@ export default function TabsLayout() {
                     title: "Payment",
                     headerShadowVisible: false,
                     href: null,
-                    tabBarStyle: { display: 'none' }, 
+                    tabBarStyle: { display: 'none' },
                 }} />
             </Tabs>
+
+            <TouchableOpacity
+                className="absolute bottom-0 left-0 w-[115px] bg-red-500 py-6 items-center flex-row justify-center space-x-2"
+                onPress={() => {
+                    setRole("")
+                    setIsLoggedIn(false)
+                    router.push('/')
+                }}>
+                <Image
+                    source={icons.logout}
+                    resizeMode="contain"
+                    tintColor="white"
+                    className="w-5 h-5"
+                />
+                <Text className="ml-2 text-white font-bold">
+                    Log Out
+                </Text>
+            </TouchableOpacity>
         </SafeAreaView>
     );
 }

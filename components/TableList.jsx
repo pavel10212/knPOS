@@ -1,9 +1,9 @@
-import {Pressable, View} from 'react-native'
+import { Pressable, View } from 'react-native'
 import React from 'react'
 import TableComponent from './TableComponent'
 import StatusLegend from './StatusLegend'
-import {tableStore} from '../hooks/useStore'
-import {useSharedStore} from '../hooks/useSharedStore'
+import { tableStore } from '../hooks/useStore'
+import { useSharedStore } from '../hooks/useSharedStore'
 
 const TableList = ({ isEditing, onReserve }) => {
     const setDropdownTable = tableStore((state) => state.setDropdownTable)
