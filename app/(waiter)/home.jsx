@@ -1,5 +1,5 @@
 import { FlatList, Text, View } from 'react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TableList from '../../components/TableList';
 import QRModal from '../../components/QRModal';
@@ -20,6 +20,14 @@ const Home = () => {
     const setReservationModal = tableStore((state) => state.setReservationModal);
     const setDropdownTable = tableStore((state) => state.setDropdownTable);
     const orders = useSharedStore((state) => state.orders);
+    const [ordersForRender, setOrdersForRender] = useState([]);
+
+    useEffect(() => {
+        console.log('Orders', orders);
+        if (selectedTable) {
+            setOrdersForRender(findOrdersForTable(selectedTable.table_num, orders));
+        }
+    }, [selectedTable, orders]);
 
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
@@ -41,7 +49,6 @@ const Home = () => {
         );
     };
 
-
     return (
         <SafeAreaView className="flex-1 bg-white">
             <View className="flex flex-row flex-1">
@@ -60,7 +67,7 @@ const Home = () => {
                         {selectedTable ? (
                             doesTableHaveOrders(selectedTable.table_num, orders) ? (
                                 <FlatList
-                                    data={findOrdersForTable(selectedTable.table_num, orders)}
+                                    data={ordersForRender}
                                     renderItem={renderOrder}
                                     keyExtractor={(item) => item.order_id.toString()}
                                     contentContainerStyle={{ padding: 16 }}

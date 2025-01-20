@@ -1,5 +1,4 @@
 import { Pressable, View } from 'react-native'
-import React from 'react'
 import TableComponent from './TableComponent'
 import StatusLegend from './StatusLegend'
 import { tableStore } from '../hooks/useStore'

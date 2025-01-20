@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { ScrollView, Text, TouchableOpacity, View, Image } from "react-native";
 import Checkbox from "expo-checkbox";
 import Header from "../../components/Header";
@@ -41,6 +41,10 @@ const KitchenHome = () => {
         };
       });
   }, [orders, menu]);
+
+  useEffect(() => {
+    console.log(orders, "orders");
+  }, [orders]);
 
   const toggleItemCheck = (orderId, itemIndex) => {
     setCheckedItems(prev => ({
