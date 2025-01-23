@@ -7,7 +7,7 @@ const ActionButtons = ({ onPrintQR, order }) => (
         <View className='flex flex-row h-[65px] gap-2'>
             <TouchableOpacity
                 className='bg-primary flex-1 flex rounded-lg justify-center items-center'
-                onPress={() => router.push('/menu')}
+                onPress={() => router.push('/menu?fromTable=true')}
             >
                 <Text className='text-white font-bold text-lg'>Add To Order</Text>
             </TouchableOpacity>

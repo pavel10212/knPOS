@@ -14,14 +14,12 @@ const OrderItem = ({ order }) => {
     const handleEditOrder = useCallback(() => {
         router.push({
             pathname: 'menu',
-            params: { order: order.order_id },
+            params: { 
+                order: order.order_id,
+                fromTable: true 
+            },
         });
     }, [order.order_id]);
-
-    const handleEditNotes = useCallback((index) => {
-        setEditingNoteIndex(index);
-        setNotesModal(true);
-    }, []);
 
 
     const orderItems = useMemo(() =>

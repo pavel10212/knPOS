@@ -10,9 +10,22 @@ import { localStore } from "../../hooks/Storage/cache";
 import { useLocalSearchParams } from 'expo-router';
 
 const Menu = () => {
-    const { order } = useLocalSearchParams();
+    const { order, fromTable } = useLocalSearchParams();
     const isEditMode = Boolean(order);
     const selectedTable = tableStore((state) => state.selectedTable)
+    // Reset canOrder if we're not in edit mode and not coming from table
+    const canOrder = useMemo(() => {
+        if (isEditMode) return true;
+        return Boolean(fromTable);
+    }, [isEditMode, fromTable]);
+
+    // Clear temporary order when navigation source changes
+    useEffect(() => {
+        if (!canOrder) {
+            setTemporaryOrder([]);
+        }
+    }, [canOrder]);
+
     const updateOrderNotes = tableStore((state) => state.updateOrderNotes)
     const menu = useSharedStore((state) => state.menu)
     const [temporaryOrder, setTemporaryOrder] = useState([])
@@ -161,14 +174,14 @@ const Menu = () => {
             request={item.request}
             currentQuantity={temporaryOrder.find((o) => o.id === item.menu_item_id)?.quantity || 0}
             description={item.description}
-            onChangeQuantity={(action) => handleItemAction(item, action)}
-            onNotesChange={(index, notes) => handleNotesChange(item.menu_item_name, index, notes)}
+            onChangeQuantity={canOrder ? (action) => handleItemAction(item, action) : null}
+            onNotesChange={canOrder ? (index, notes) => handleNotesChange(item.menu_item_name, index, notes) : null}
         />
-    ), [temporaryOrder, handleItemAction, handleNotesChange]);
+    ), [temporaryOrder, handleItemAction, handleNotesChange, canOrder]);
 
     const keyExtractor = useCallback((item) => item.menu_item_id.toString(), []);
     const getItemLayout = useCallback((_, index) => ({
-        length: 200, // Adjust based on your item height
+        length: 200, 
         offset: 200 * index,
         index,
     }), []);
@@ -179,9 +192,11 @@ const Menu = () => {
                 <View className="flex-1">
                     <View className="px-6 py-4 bg-white border-b border-gray-200">
                         <Text className='text-2xl font-bold'>
-                            {isEditMode
-                                ? `Edit Order #${order} - Table ${selectedTable?.table_num}`
-                                : `New Order - Table ${selectedTable?.table_num}`}
+                            {!canOrder
+                                ? 'Menu View'
+                                : isEditMode
+                                    ? `Edit Order #${order} - Table ${selectedTable?.table_num}`
+                                    : `New Order - Table ${selectedTable?.table_num}`}
                         </Text>
                     </View>
                     <FlatList
@@ -196,49 +211,47 @@ const Menu = () => {
                         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                         columnWrapperStyle={{ justifyContent: 'space-between', marginHorizontal: 16 }}
                     />
-
                 </View>
 
-                <View
-                    className='w-[300px] bg-white border-l border-gray-200 flex flex-col fixed right-0 top-0 bottom-0 shadow-lg'>
-                    <View className='h-[60px] flex justify-center px-5 border-b border-gray-200'>
-                        <Text className='font-bold text-2xl'>
-                            {isEditMode ? 'Edit Order' : 'Current Order'}
-                        </Text>
-                    </View>
-                    <View className='flex-1'>
-                        {temporaryOrder ? (
-                            <FlatList
-                                data={temporaryOrder}
-                                renderItem={({ item }) => (
-                                    <MenuOrderItem
-                                        order={item}
-                                        onIncrease={(id) => handleItemAction({ ...item, menu_item_id: id }, 'add')}
-                                        onDecrease={(id) => handleItemAction({ ...item, menu_item_id: id }, 'remove')}
-                                    />
-                                )}
-                                keyExtractor={(item) => item.id.toString() + Math.random()}
-                            />
-
-
-                        ) : (
-                            <Text className='p-4 text-gray-500'>No items in order</Text>
-                        )}
-                    </View>
-                    <View className='p-5 border-t border-gray-200 bg-white'>
-                        <Text className='text-xl font-bold mb-4'>
-                            Total: ${total.toFixed(2)}
-                        </Text>
-                        <TouchableOpacity
-                            className='bg-primary p-4 rounded-lg'
-                            onPress={() => handleFinishOrder()}
-                        >
-                            <Text className='text-white text-center font-bold text-lg'>
-                                {isEditMode ? 'Update Order' : 'Confirm Order'}
+                {canOrder && (
+                    <View className='w-[300px] bg-white border-l border-gray-200 flex flex-col fixed right-0 top-0 bottom-0 shadow-lg'>
+                        <View className='h-[60px] flex justify-center px-5 border-b border-gray-200'>
+                            <Text className='font-bold text-2xl'>
+                                {isEditMode ? 'Edit Order' : 'Current Order'}
                             </Text>
-                        </TouchableOpacity>
+                        </View>
+                        <View className='flex-1'>
+                            {temporaryOrder ? (
+                                <FlatList
+                                    data={temporaryOrder}
+                                    renderItem={({ item }) => (
+                                        <MenuOrderItem
+                                            order={item}
+                                            onIncrease={(id) => handleItemAction({ ...item, menu_item_id: id }, 'add')}
+                                            onDecrease={(id) => handleItemAction({ ...item, menu_item_id: id }, 'remove')}
+                                        />
+                                    )}
+                                    keyExtractor={(item) => item.id.toString() + Math.random()}
+                                />
+                            ) : (
+                                <Text className='p-4 text-gray-500'>No items in order</Text>
+                            )}
+                        </View>
+                        <View className='p-5 border-t border-gray-200 bg-white'>
+                            <Text className='text-xl font-bold mb-4'>
+                                Total: ${total.toFixed(2)}
+                            </Text>
+                            <TouchableOpacity
+                                className='bg-primary p-4 rounded-lg'
+                                onPress={() => handleFinishOrder()}
+                            >
+                                <Text className='text-white text-center font-bold text-lg'>
+                                    {isEditMode ? 'Update Order' : 'Confirm Order'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                )}
             </View>
         </SafeAreaView>
     )
