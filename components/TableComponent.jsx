@@ -59,18 +59,47 @@ const TableComponent = ({
 
     const shape = capacity === 2 ? 'rounded-full' : 'rounded-lg'
 
+    const getDropdownPosition = () => {
+        const baseLeft = ((location?.x || 0) * SCALE_FACTOR) + OFFSET_X;
+        const baseTop = ((location?.y || 0) * SCALE_FACTOR) + OFFSET_Y;
+        
+        // Adjust position based on rotation
+        if (rotation === 90 || rotation === -270) {
+            return {
+                left: baseLeft - (capacity === 6 ? 20 : 0),  // Adjust for wider tables
+                top: baseTop + (capacity === 6 ? 150 : 120)
+            };
+        }
+        
+        return {
+            left: baseLeft,
+            top: baseTop + (capacity === 6 ? 120 : 120)
+        };
+    };
+
     return (
-        <>
+        <View style={{ position: 'relative' }}>
             {isDropdownOpen && (
                 <TouchableWithoutFeedback onPress={() => setDropdownTable(null)}>
-                    <View className="absolute inset-0" />
+                    <View 
+                        style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            zIndex: 998
+                        }}
+                    />
                 </TouchableWithoutFeedback>
             )}
+            
             <View style={{
                 position: 'absolute',
                 left: ((location?.x || 0) * SCALE_FACTOR) + OFFSET_X,
                 top: ((location?.y || 0) * SCALE_FACTOR) + OFFSET_Y,
-                transform: [{ rotate: `${rotation || 0}deg` }]
+                transform: [{ rotate: `${rotation || 0}deg` }],
+                zIndex: 1
             }}>
                 <TouchableOpacity
                     onPress={(e) => {
@@ -96,34 +125,53 @@ const TableComponent = ({
                         </View>
                     )}
                 </TouchableOpacity>
-
-                {isDropdownOpen && (
-                    <View className={`absolute ${getTableSize() === 'w-24 h-24' ? 'top-24' : 'top-32'} left-0 w-40 bg-white rounded-lg shadow-lg border border-gray-200 mt-3 z-50`}>
-                        <TouchableOpacity
-                            className="p-2"
-                            onPress={() => handleStatusChange('available')}
-                        >
-                            <Text>Available</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            className="p-2"
-                            onPress={() => {
-                                setDropdownTable(null);
-                                handleStatusChange('reserved')
-                            }}
-                        >
-                            <Text>Reserved</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            className="p-2"
-                            onPress={() => handleStatusChange('unavailable')}
-                        >
-                            <Text>Unavailable</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
             </View>
-        </>
+
+            {isDropdownOpen && (
+                <View 
+                    style={{
+                        position: 'absolute',
+                        ...getDropdownPosition(),
+                        backgroundColor: 'white',
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: '#e5e7eb',
+                        width: 160,
+                        shadowColor: "#000",
+                        shadowOffset: {
+                            width: 0,
+                            height: 2,
+                        },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 3.84,
+                        elevation: 5,
+                        zIndex: 999
+                    }}
+                >
+                    <TouchableOpacity
+                        className="p-2"
+                        onPress={() => handleStatusChange('available')}
+                    >
+                        <Text>Available</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-2"
+                        onPress={() => {
+                            setDropdownTable(null);
+                            handleStatusChange('reserved')
+                        }}
+                    >
+                        <Text>Reserved</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-2"
+                        onPress={() => handleStatusChange('unavailable')}
+                    >
+                        <Text>Unavailable</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+        </View>
     )
 }
 

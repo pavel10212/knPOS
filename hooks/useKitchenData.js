@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { useOrderStore } from "./useOrderStore";
 import { useMenuStore } from "./useMenuStore";
+import { useSocketStore } from "./useSocket";
 
 export const useKitchenData = () => {
   const fetchOrders = useOrderStore((state) => state.fetchOrders);
   const fetchMenu = useMenuStore((state) => state.fetchMenu);
-  const initializeSocket = useOrderStore((state) => state.initializeSocket);
-  const disconnectSocket = useOrderStore((state) => state.disconnectSocket);
+  const initializeSocket = useSocketStore((state) => state.initializeSocket);
+  const disconnectSocket = useSocketStore((state) => state.disconnectSocket);
 
   useEffect(() => {
     const cleanup = initializeSocket();
