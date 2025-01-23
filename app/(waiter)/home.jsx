@@ -23,7 +23,6 @@ const Home = () => {
     const [ordersForRender, setOrdersForRender] = useState([]);
 
     useEffect(() => {
-        console.log('Orders', orders);
         if (selectedTable) {
             setOrdersForRender(findOrdersForTable(selectedTable.table_num, orders));
         }

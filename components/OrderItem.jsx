@@ -1,13 +1,10 @@
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useState, useMemo, useCallback } from 'react';
-import OrderNotesModal from './OrderNotesModal';
 import { useSharedStore } from '../hooks/useSharedStore';
 import { router } from 'expo-router';
 
-const OrderItem = ({ order, onNotesChange }) => {
+const OrderItem = ({ order }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [notesModal, setNotesModal] = useState(false);
-    const [editingNoteIndex, setEditingNoteIndex] = useState(0);
     const menu = useSharedStore((state) => state.menu);
 
     const handleDropdownClick = useCallback(() => {
@@ -26,7 +23,8 @@ const OrderItem = ({ order, onNotesChange }) => {
         setNotesModal(true);
     }, []);
 
-    const orderItems = useMemo(() => 
+
+    const orderItems = useMemo(() =>
         order.order_details?.map((item) => {
             const menuItem = menu?.menuItems?.find(
                 (mi) => mi.menu_item_id === item.menu_item_id
@@ -36,15 +34,11 @@ const OrderItem = ({ order, onNotesChange }) => {
                 name: menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
                 quantity: item.quantity,
                 price: menuItem?.price || 0,
+                request: item.request || '',
             };
         }),
         [order.order_details, menu?.menuItems]
     );
-
-    const handleSaveNotes = useCallback((notes) => {
-        onNotesChange(editingNoteIndex, notes);
-        setNotesModal(false);
-    }, [editingNoteIndex, onNotesChange]);
 
     return (
         <View className="rounded-xl bg-white shadow-md mb-4 p-4">
@@ -61,7 +55,7 @@ const OrderItem = ({ order, onNotesChange }) => {
             {isExpanded && (
                 <View className="mt-4">
                     {orderItems?.map((item, index) => (
-                        <View key={item.id} className="py-2 border-t border-gray-200">
+                        <View key={`${item.id}-${index}`} className="py-2 border-t border-gray-200">
                             <View className="flex flex-row justify-between items-center">
                                 <Text className="font-medium text-base">{item.name}</Text>
                                 <Text className="font-medium text-sm">
@@ -71,14 +65,9 @@ const OrderItem = ({ order, onNotesChange }) => {
                                     ${Number(item.price).toFixed(2)}
                                 </Text>
                             </View>
-                            <TouchableOpacity
-                                onPress={() => handleEditNotes(index)}
-                                className="mt-2"
-                            >
-                                <Text className="text-sm text-blue-600">
-                                    Notes: {order.notes?.[index] || 'Add notes...'}
-                                </Text>
-                            </TouchableOpacity>
+                            <Text className="text-sm text-blue-600">
+                                Notes: {item.request || 'Add notes...'}
+                            </Text>
                         </View>
                     ))}
                     <View className="py-4 border-t flex flex-row justify-between border-gray-200">
@@ -88,13 +77,6 @@ const OrderItem = ({ order, onNotesChange }) => {
                     </View>
                 </View>
             )}
-
-            <OrderNotesModal
-                visible={notesModal}
-                onClose={() => setNotesModal(false)}
-                onSave={handleSaveNotes}
-                initialNotes={order.notes?.[editingNoteIndex] || ''}
-            />
         </View>
     );
 };

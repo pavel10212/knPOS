@@ -30,7 +30,7 @@ const Menu = () => {
         return orders.find((order) => order.order_id === numericOrderId);
     }, [order, orders, isEditMode]);
 
-    const total = useMemo(() => 
+    const total = useMemo(() =>
         temporaryOrder.reduce((acc, item) => acc + item.price * item.quantity, 0),
         [temporaryOrder]
     );
@@ -71,7 +71,9 @@ const Menu = () => {
                         id: detail.menu_item_id,
                         name: menuItem?.menu_item_name || `Unknown Item #${detail.menu_item_id}`,
                         price: menuItem?.price || 0,
-                        quantity: detail.quantity
+                        quantity: detail.quantity,
+                        request: detail.request || '',
+
                     };
                 });
                 setTemporaryOrder(initialOrder);
@@ -95,6 +97,7 @@ const Menu = () => {
                 menu_item_id: item.id,
                 status: 'pending',
                 quantity: item.quantity,
+                request: item.request || '',
             }))),
         };
 
@@ -108,24 +111,39 @@ const Menu = () => {
                 order_details: orderDetails.order_details
             } : orderDetails;
 
+            console.log("Sending order to server:", body);
+            console.log("Endpoint:", endpoint);
+            console.log("Method:", method);
+
             const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/${endpoint}`, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
 
+            console.log("Didn't throw error");
+
             if (!response.ok) throw new Error(`Failed to ${isEditMode ? 'update' : 'place'} order`);
 
             const serverData = await response.json();
+            console.log("Server data:", serverData);
             const savedOrder = Array.isArray(serverData) ? serverData[0] : serverData;
 
+            // Track this order as processed
+            useOrderStore.getState().trackProcessedOrder(savedOrder.order_id);
+
             const cachedOrders = JSON.parse(localStore.getString("orders") || "[]");
+            console.log("Cached orders:", cachedOrders);
             const updatedOrders = isEditMode
                 ? [...cachedOrders.filter(o => o.order_id !== savedOrder.order_id), savedOrder]
                 : [...cachedOrders, savedOrder];
 
             localStore.set("orders", JSON.stringify(updatedOrders));
+
+            console.log("Updated orders:", updatedOrders);
             setOrders(updatedOrders);
+
+            console.log("Order saved successfully");
             setTemporaryOrder([]);
             router.push("home");
         } catch (error) {
@@ -135,11 +153,12 @@ const Menu = () => {
 
     const renderMenuItem = useMemo(() => ({ item }) => (
         <MenuItem
-            key={item.menu_item_id}
+            key={`menu-item-${item.menu_item_id}`}
             title={item.menu_item_name}
             category={item.category}
             price={item.price}
             image={item.menu_item_image || '/assets/images/favicon.png'}
+            request={item.request}
             currentQuantity={temporaryOrder.find((o) => o.id === item.menu_item_id)?.quantity || 0}
             description={item.description}
             onChangeQuantity={(action) => handleItemAction(item, action)}
@@ -198,7 +217,7 @@ const Menu = () => {
                                         onDecrease={(id) => handleItemAction({ ...item, menu_item_id: id }, 'remove')}
                                     />
                                 )}
-                                keyExtractor={(item) => item.id.toString()}
+                                keyExtractor={(item) => item.id.toString() + Math.random()}
                             />
 
 

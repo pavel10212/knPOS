@@ -1,4 +1,4 @@
-import {Image, Text, TouchableOpacity, View} from 'react-native'
+import { Image, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 
 const MenuItem = ({ title, category, price, image, onChangeQuantity, currentQuantity = 0 }) => {
@@ -6,7 +6,6 @@ const MenuItem = ({ title, category, price, image, onChangeQuantity, currentQuan
         if (action === 'remove' && currentQuantity === 0) return;
         onChangeQuantity(action);
     };
-
     return (
         <View className='w-[30%] h-[320px] bg-white rounded-2xl m-2 shadow-sm'>
             <View className='w-full h-[200px] rounded-t-2xl overflow-hidden bg-gray-50'>

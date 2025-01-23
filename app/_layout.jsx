@@ -1,6 +1,7 @@
-import {SplashScreen, Stack} from "expo-router";
-import {useEffect} from "react";
+import { SplashScreen, Stack } from "expo-router";
+import { useEffect } from "react";
 import "../global.css"
+import RootComponent from "../components/RootComponent";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -10,11 +11,13 @@ const RootLayout = () => {
   }, []);
 
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="(waiter)" options={{ headerShown: false }} />
-      <Stack.Screen name="(kitchen)" options={{ headerShown: false }} />
-    </Stack>
+    <RootComponent>
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(waiter)" options={{ headerShown: false }} />
+        <Stack.Screen name="(kitchen)" options={{ headerShown: false }} />
+      </Stack>
+    </RootComponent>
   );
 };
 

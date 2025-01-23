@@ -13,7 +13,6 @@ export const useOrderStore = create((set, get) => ({
   error: null,
   socket: null,
   selectedOrder: null,
-  recentlyProcessedOrders: new Set(),
   setSelectedOrder: (order) => set({ selectedOrder: order }),
 
   fetchOrders: async () => {
@@ -45,6 +44,8 @@ export const useOrderStore = create((set, get) => ({
       setOrders(data);
       localStore.set("orders", JSON.stringify(data));
 
+
+
       return data;
     } catch (error) {
       console.error("❌ Error fetching orders:", error);
@@ -53,7 +54,7 @@ export const useOrderStore = create((set, get) => ({
   },
 
   initializeSocket: () => {
-    const { socket, recentlyProcessedOrders } = get();
+    const { socket } = get();
     if (socket) return;
 
     const newSocket = io(SOCKET_URL, {
@@ -66,6 +67,11 @@ export const useOrderStore = create((set, get) => ({
 
     newSocket.on("connect", () => {
       console.log("Socket connected");
+      Toast.show({
+        type: "success",
+        text1: "Socket connected",
+        position: "bottom",
+      });
     });
 
     newSocket.on("connect_error", (error) => {
@@ -74,12 +80,6 @@ export const useOrderStore = create((set, get) => ({
     });
 
     newSocket.on("new-order", async (newOrder) => {
-      // Check if we've recently processed this order
-      if (recentlyProcessedOrders.has(newOrder.order_id)) {
-        console.log("Skipping duplicate order:", newOrder.order_id);
-        return;
-      }
-
       console.log("New order received:", newOrder);
 
       // Get current orders from localStorage and state
@@ -100,12 +100,6 @@ export const useOrderStore = create((set, get) => ({
       // Update localStorage
       localStore.set("orders", JSON.stringify(updatedOrders));
 
-      Toast.show({
-        type: "success",
-        text1: "New order received",
-        text2: `Table ${newOrder.table_num}`,
-      });
-
       // Update global state
       useSharedStore.getState().setOrders(updatedOrders);
     });
@@ -125,15 +119,5 @@ export const useOrderStore = create((set, get) => ({
       socket.disconnect();
       set({ socket: null });
     }
-  },
-
-  // Add this method to track processed orders
-  trackProcessedOrder: (orderId) => {
-    const { recentlyProcessedOrders } = get();
-    recentlyProcessedOrders.add(orderId);
-    // Remove the order ID from tracking after 5 seconds
-    setTimeout(() => {
-      recentlyProcessedOrders.delete(orderId);
-    }, 5000);
   },
 }));
