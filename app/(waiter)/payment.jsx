@@ -1,4 +1,5 @@
 import { Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { localStore } from '../../hooks/Storage/cache'
 import { tableStore } from '../../hooks/useStore'
 import { useMemo, useState, useCallback } from 'react'
 import icons from '../../constants/icons'
@@ -16,6 +17,7 @@ const Payment = () => {
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
     const menu = useSharedStore((state) => state.menu)
     const setOrders = useSharedStore((state) => state.setOrders)
+
 
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [tipPercentage, setTipPercentage] = useState(0);
@@ -121,13 +123,13 @@ const Payment = () => {
                 });
 
                 if (!response.ok) throw new Error('Failed to update order');
+
                 return response.json();
             }));
 
-            setOrders(prev => [
-                ...prev.filter(order => order.table_num !== selectedTable.table_num),
-                ...updatedOrders
-            ]);
+            setOrders([...orders.filter(order => !parsedOrder.includes(order)), ...updatedOrders]);
+
+            localStore.set('orders', JSON.stringify([...orders.filter(order => !parsedOrder.includes(order)), ...updatedOrders]));
 
             await updateTableStatus(selectedTable.table_num, 'Available');
             router.push('/home');
