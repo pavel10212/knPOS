@@ -6,13 +6,17 @@ import { localStore } from "./Storage/cache";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
+// Add this helper at the top of the file
+const generateDeviceId = () => Math.random().toString(36).substring(2, 15);
+
 export const useSocketStore = create((set, get) => ({
     socket: null,
     error: null,
     recentlyProcessedOrders: new Set(),
+    deviceId: generateDeviceId(), // Add device ID to store
 
     initializeSocket: () => {
-        const { socket, recentlyProcessedOrders } = get();
+        const { socket, recentlyProcessedOrders, deviceId } = get();
         if (socket) return;
 
         const newSocket = io(SOCKET_URL, {
@@ -21,6 +25,7 @@ export const useSocketStore = create((set, get) => ({
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
+            query: { deviceId } // Add deviceId to connection
         });
 
         newSocket.on("connect", () => {
@@ -32,7 +37,15 @@ export const useSocketStore = create((set, get) => ({
             set({ error: "Socket connection error" });
         });
 
-        newSocket.on("new-order", async (newOrder) => {
+        newSocket.on("new-order", async (data) => {
+            // Ignore orders from this device
+            if (data.senderId === deviceId) {
+                console.log("Ignoring own order:", data.order.order_id);
+                return;
+            }
+
+            const newOrder = data.order;
+            
             // Check if we've recently processed this order
             if (recentlyProcessedOrders.has(newOrder.order_id)) {
                 console.log("Skipping duplicate order:", newOrder.order_id);
