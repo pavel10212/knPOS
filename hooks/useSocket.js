@@ -6,17 +6,14 @@ import { localStore } from "./Storage/cache";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
-// Add this helper at the top of the file
-const generateDeviceId = () => Math.random().toString(36).substring(2, 15);
-
 export const useSocketStore = create((set, get) => ({
   socket: null,
   error: null,
   recentlyProcessedOrders: new Set(),
-  deviceId: generateDeviceId(), // Add device ID to store
+  processedOrders: new Set(),
 
   initializeSocket: () => {
-    const { socket, recentlyProcessedOrders, deviceId } = get();
+    const { socket } = get();
     if (socket) return;
 
     const newSocket = io(SOCKET_URL, {
@@ -25,7 +22,6 @@ export const useSocketStore = create((set, get) => ({
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      query: { deviceId },
     });
 
     newSocket.on("connect", () => {
@@ -37,48 +33,64 @@ export const useSocketStore = create((set, get) => ({
       set({ error: "Socket connection error" });
     });
 
+    newSocket.on("status-update", (data) => {
+      const tables = useSharedStore.getState().tables;
+      const setTables = useSharedStore.getState().setTables;
+
+      const newTables = [
+        ...tables.filter((table) => table.table_num !== data.table_num),
+        data,
+      ];
+
+      setTables(newTables);
+
+      Toast.show({
+        type: "info",
+        text1: "Table Status Updated",
+        text2: `Table ${data.table_num} is now ${data.status}`,
+      });
+
+      console.log("Table status updated:", data);
+    });
+
     newSocket.on("new-order", async (data) => {
-      // Ignore orders from this device
-      if (data.senderId === deviceId) {
-        console.log("Ignoring own order:", data.order_id);
+      // Add small delay to ensure client-side tracking is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const { recentlyProcessedOrders } = get();
+      const orderId = data.order_id;
+
+      // Early exit if we just processed this order
+      if (recentlyProcessedOrders.has(orderId)) {
+        console.log(
+          `Order ${orderId} was recently processed locally, ignoring socket event`
+        );
         return;
       }
 
-      // Access data directly since it's already the order object
-      const newOrder = data;
+      console.log("The new order: ", data);
+      console.log("The set: ", recentlyProcessedOrders);
 
-      // Check if we've recently processed this order
-      if (recentlyProcessedOrders.has(newOrder.order_id)) {
-        console.log("Skipping duplicate order:", newOrder.order_id);
-        return;
-      }
-
-      // Get current orders from localStorage and state
+      // Process the order
       const currentOrders = useSharedStore.getState().orders;
-
-      // Ensure order_details is properly parsed
       const processedOrder = {
-        ...newOrder,
+        ...data,
         order_details:
-          typeof newOrder.order_details === "string"
-            ? JSON.parse(newOrder.order_details)
-            : newOrder.order_details,
+          typeof data.order_details === "string"
+            ? JSON.parse(data.order_details)
+            : data.order_details,
       };
 
-      // Create new orders array
+      // Update state and storage
       const updatedOrders = [...currentOrders, processedOrder];
-
-      // Update localStorage
       localStore.set("orders", JSON.stringify(updatedOrders));
+      useSharedStore.getState().setOrders(updatedOrders);
 
       Toast.show({
         type: "success",
         text1: "New Order Received",
-        text2: `Table ${newOrder.table_num}`,
+        text2: `Table ${data.table_num}`,
       });
-
-      // Update global state
-      useSharedStore.getState().setOrders(updatedOrders);
     });
 
     set({ socket: newSocket });
@@ -99,10 +111,20 @@ export const useSocketStore = create((set, get) => ({
   },
 
   trackProcessedOrder: (orderId) => {
-    const { recentlyProcessedOrders } = get();
-    recentlyProcessedOrders.add(orderId);
-    setTimeout(() => {
-      recentlyProcessedOrders.delete(orderId);
-    }, 5000);
+    return new Promise((resolve) => {
+      const { recentlyProcessedOrders } = get();
+      console.log(`Tracking order ${orderId} in prevention system`);
+      
+      recentlyProcessedOrders.add(orderId);
+      
+      // Resolve immediately but keep the tracking active
+      resolve();
+      
+      setTimeout(() => {
+        const { recentlyProcessedOrders } = get();
+        recentlyProcessedOrders.delete(orderId);
+        console.log(`Removed order ${orderId} from prevention system`);
+      }, 30000);
+    });
   },
 }));

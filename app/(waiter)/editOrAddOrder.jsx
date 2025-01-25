@@ -93,45 +93,45 @@ const EditOrAddOrder = () => {
   const handleFinishOrder = useCallback(async () => {
     if (!selectedTable || !temporaryOrder.length) return;
 
-    // Check if table is Available and update status
-    if (!isEditMode && selectedTable.status === "Available") {
-      await updateTableStatus(selectedTable.table_num, "Unavailable");
-    }
-
-    const orderDetails = {
-      order_id: isEditMode ? order : null,
-      table_num: selectedTable.table_num,
-      order_status: "Pending",
-      total_amount: total,
-      order_date_time: new Date().toISOString(),
-      completion_date_time: null,
-      order_details: JSON.stringify(
-        temporaryOrder.map((item) => ({
-          menu_item_id: item.id,
-          status: "pending",
-          quantity: item.quantity,
-          request: item.request || "",
-        }))
-      ),
-      deviceId: useSocketStore.getState().deviceId,
-    };
-
     try {
+      // Check if table is Available and update status
+      if (!isEditMode && selectedTable.status === "Available") {
+        await updateTableStatus(selectedTable.table_num, "Unavailable");
+      }
+
+      const orderDetails = {
+        order_id: isEditMode ? order : null,
+        table_num: selectedTable.table_num,
+        order_status: "Pending",
+        total_amount: total,
+        order_date_time: new Date().toISOString(),
+        completion_date_time: null,
+        order_details: JSON.stringify(
+          temporaryOrder.map((item) => ({
+            menu_item_id: item.id,
+            status: "pending",
+            quantity: item.quantity,
+            request: item.request || "",
+          }))
+        ),
+      };
+
       const endpoint = isEditMode ? "orders-update" : "orders-insert";
       const method = isEditMode ? "PUT" : "POST";
       const body = isEditMode
         ? {
-            order_id: order,
-            order_status: "Pending",
-            completion_date_time: null,
-            total_amount: total,
-            order_details: orderDetails.order_details,
-          }
+          order_id: order,
+          order_status: "Pending",
+          completion_date_time: null,
+          total_amount: total,
+          order_details: orderDetails.order_details,
+        }
         : orderDetails;
 
-      console.log("Sending order to server:", body);
-      console.log("Endpoint:", endpoint);
-      console.log("Method:", method);
+      // If editing, ensure tracking is set before the API call
+      if (isEditMode) {
+        await useSocketStore.getState().trackProcessedOrder(parseInt(order, 10));
+      }
 
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/${endpoint}`,
@@ -142,32 +142,29 @@ const EditOrAddOrder = () => {
         }
       );
 
-      console.log("Didn't throw error");
-
       if (!response.ok)
         throw new Error(`Failed to ${isEditMode ? "update" : "place"} order`);
 
       const serverData = await response.json();
-      console.log("Server data:", serverData);
       const savedOrder = Array.isArray(serverData) ? serverData[0] : serverData;
 
-      // Track this order as processed
-      useSocketStore.getState().trackProcessedOrder(savedOrder.order_id);
+      // For new orders, ensure tracking is set before updating state
+      if (!isEditMode) {
+        await useSocketStore.getState().trackProcessedOrder(savedOrder.order_id);
+      }
 
+      // Short delay to ensure tracking is propagated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Update state
       const cachedOrders = JSON.parse(localStore.getString("orders") || "[]");
-      console.log("Cached orders:", cachedOrders);
       const updatedOrders = isEditMode
-        ? [
-            ...cachedOrders.filter((o) => o.order_id !== savedOrder.order_id),
-            savedOrder,
-          ]
+        ? cachedOrders.map(o => o.order_id === savedOrder.order_id ? savedOrder : o)
         : [...cachedOrders, savedOrder];
 
       localStore.set("orders", JSON.stringify(updatedOrders));
-
       setOrders(updatedOrders);
-
-      console.log("Order saved successfully");
+      
       setTemporaryOrder([]);
       router.push("home");
     } catch (error) {
@@ -178,25 +175,25 @@ const EditOrAddOrder = () => {
   const renderMenuItem = useMemo(
     () =>
       ({ item }) =>
-        (
-          <MenuItem
-            key={`menu-item-${item.menu_item_id}`}
-            title={item.menu_item_name}
-            category={item.category}
-            price={item.price}
-            image={item.menu_item_image || "/assets/images/favicon.png"}
-            request={item.request}
-            currentQuantity={
-              temporaryOrder.find((o) => o.id === item.menu_item_id)
-                ?.quantity || 0
-            }
-            description={item.description}
-            onChangeQuantity={(action) => handleItemAction(item, action)}
-            onNotesChange={(index, notes) =>
-              handleNotesChange(item.menu_item_name, index, notes)
-            }
-          />
-        ),
+      (
+        <MenuItem
+          key={`menu-item-${item.menu_item_id}`}
+          title={item.menu_item_name}
+          category={item.category}
+          price={item.price}
+          image={item.menu_item_image || "/assets/images/favicon.png"}
+          request={item.request}
+          currentQuantity={
+            temporaryOrder.find((o) => o.id === item.menu_item_id)
+              ?.quantity || 0
+          }
+          description={item.description}
+          onChangeQuantity={(action) => handleItemAction(item, action)}
+          onNotesChange={(index, notes) =>
+            handleNotesChange(item.menu_item_name, index, notes)
+          }
+        />
+      ),
     [temporaryOrder, handleItemAction, handleNotesChange]
   );
 
