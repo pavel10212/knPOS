@@ -28,7 +28,7 @@ const KitchenHome = () => {
   const kitchenOrders = useMemo(() => {
     return orders
       .filter(order => order.order_status === 'Pending')
-      .sort((a, b) => a.order_id - b.order_id)  
+      .sort((a, b) => a.order_id - b.order_id)
       .map(order => {
         const orderDetails = typeof order.order_details === 'string'
           ? JSON.parse(order.order_details)
@@ -70,7 +70,7 @@ const KitchenHome = () => {
         if (index === itemIndex) {
           return {
             ...detail,
-            status: newCheckState ? 'Ready' : 'Pending' // Toggle between Ready and Pending
+            status: newCheckState ? 'Ready' : 'Pending'
           };
         }
         return detail;
