@@ -28,6 +28,7 @@ const KitchenHome = () => {
   const kitchenOrders = useMemo(() => {
     return orders
       .filter(order => order.order_status === 'Pending')
+      .sort((a, b) => a.order_id - b.order_id)  
       .map(order => {
         const orderDetails = typeof order.order_details === 'string'
           ? JSON.parse(order.order_details)
@@ -41,7 +42,7 @@ const KitchenHome = () => {
             return {
               name: menuItem?.menu_item_name || 'Unknown Item',
               quantity: detail.quantity,
-              notes: detail.request || '' 
+              notes: detail.request || ''
             };
           })
         };
@@ -180,8 +181,8 @@ const KitchenHome = () => {
           </View>
         </View>
 
-        <ScrollView 
-          className="flex-1" 
+        <ScrollView
+          className="flex-1"
           contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
         >
