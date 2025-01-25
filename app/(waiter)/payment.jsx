@@ -26,12 +26,13 @@ const Payment = () => {
   const setOrders = useSharedStore((state) => state.setOrders);
 
   const [selectedMethod, setSelectedMethod] = useState(null);
-  const [tipPercentage, setTipPercentage] = useState(0);
+  const [tipAmount, setTipAmount] = useState(0); // Changed from tipPercentage
   const [discount, setDiscount] = useState(0);
   const [cashReceived, setCashReceived] = useState(0);
 
-  const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20];
+  const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20, 50];
   const CASH_AMOUNTS = [100, 200, 300, 500, 1000];
+  const TIP_AMOUNTS = [20, 40, 50, 100, 150]; // Add tip amounts
 
   const parsedOrder = useMemo(
     () => findOrdersForTable(selectedTable?.table_num, orders),
@@ -73,13 +74,19 @@ const Payment = () => {
       orderItems?.reduce((sum, item) => sum + item.price * item.quantity, 0) ||
       0;
 
-    const tip = subtotal * (tipPercentage / 100);
     const discountAmount = subtotal * (discount / 100);
     const vat = subtotal * 0.1;
-    const total = subtotal - discountAmount + vat;
+    const total = subtotal - discountAmount + vat; // Remove tip from total
 
-    return { subtotal, tip, serviceCharge: 0, discountAmount, vat, total };
-  }, [orderItems, tipPercentage, discount, transformedOrder]);
+    return {
+      subtotal,
+      tipAmount,
+      serviceCharge: 0,
+      discountAmount,
+      vat,
+      total, // This is now without tip
+    };
+  }, [orderItems, discount, transformedOrder]); // Remove tipAmount from dependencies since it's not used in calculation
 
   // Destructure values from calculations for use in render
   const { subtotal, tip, serviceCharge, discountAmount, vat, total } =
@@ -250,26 +257,6 @@ const Payment = () => {
                 ${total.toFixed(2)}
               </Text>
 
-              {/* Tip Section */}
-              <View className="border-t border-dashed mt-4" />
-              <View className="mt-4 flex flex-row items-center justify-start gap-4">
-                <Text className="font-semibold">Add Tip</Text>
-                <TipButton
-                  percentage={0}
-                  selected={tipPercentage === 0}
-                  onSelect={setTipPercentage}
-                  text="No Tip"
-                />
-                {[5, 10, 15, 20].map((percentage) => (
-                  <TipButton
-                    key={percentage}
-                    percentage={percentage}
-                    selected={tipPercentage === percentage}
-                    onSelect={setTipPercentage}
-                  />
-                ))}
-              </View>
-
               {/* Payment Methods */}
               <View className="border-t border-dashed mt-4" />
               <View className="mt-4 flex flex-row items-center justify-center gap-4">
@@ -350,7 +337,6 @@ const Payment = () => {
               <View className="mt-2">
                 {[
                   { label: "Subtotal", value: subtotal },
-                  { label: `Tips (${tipPercentage}%)`, value: tip },
                   { label: "Service Charge", value: serviceCharge },
                   {
                     label: `Discount (${discount}%)`,
@@ -373,9 +359,10 @@ const Payment = () => {
                 <View className="flex flex-row justify-between pt-1 border-t border-dashed">
                   <Text className="font-bold">Total</Text>
                   <Text className="font-bold text-[#D89F65]">
-                    ${(total + tip).toFixed(2)}
+                    ${total.toFixed(2)}
                   </Text>
                 </View>
+
                 {selectedMethod === "cash" && cashReceived > 0 && (
                   <View className="flex flex-row justify-between pt-1 border-t border-dashed">
                     <Text
@@ -392,6 +379,57 @@ const Payment = () => {
                     >
                       ${Math.abs(cashReceived - total).toFixed(2)}
                     </Text>
+                  </View>
+                )}
+
+                {/* Tips Section - New design */}
+                <View className="border-t border-dashed mt-4">
+                  <View className="w-full bg-[#EAF0F0] p-4 rounded-lg space-y-6 mt-4">
+                    <View className="flex flex-row items-center justify-between">
+                      <Text className="font-medium">Tips Amount</Text>
+                      <TextInput
+                        className="border-b bg-white px-4 py-2 rounded-lg w-[120px] text-center"
+                        placeholder="$0.00"
+                        value={tipAmount.toString()}
+                        onChangeText={(text) =>
+                          setTipAmount(parseFloat(text) || 0)
+                        }
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <View className="flex flex-row flex-wrap gap-2 pt-4 justify-center">
+                      {TIP_AMOUNTS.map((amount) => (
+                        <TouchableOpacity
+                          key={amount}
+                          onPress={() => setTipAmount(amount)}
+                          className={`px-4 py-2 rounded-lg ${
+                            tipAmount === amount ? "bg-primary" : "bg-white"
+                          }`}
+                        >
+                          <Text
+                            className={`font-medium ${
+                              tipAmount === amount
+                                ? "text-white"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            ${amount}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+
+                {tipAmount > 0 && (
+                  <View className="mt-2">
+                    <View className="flex flex-row justify-between"></View>
+                    <View className="flex flex-row justify-between">
+                      <Text className="font-bold">Tip Amount</Text>
+                      <Text className="font-bold text-green-500">
+                        ${tipAmount.toFixed(2)}
+                      </Text>
+                    </View>
                   </View>
                 )}
               </View>
