@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import icons from "../../constants/icons";
 import { router } from "expo-router";
@@ -25,17 +25,23 @@ const TabIcon = ({ icon, color, name, focused }) => {
 };
 
 export default function TabsLayout() {
+  const pathname = usePathname();
+  const isTabScreen = ["home", "menu", "order", "settings"].some((path) =>
+    pathname.includes(path)
+  );
   const setRole = loginStore((state) => state.setRole);
   const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn);
   return (
     <SafeAreaView className="flex-1">
-      <View className="absolute left-0 top-0 z-10 w-[115px] h-[115px] items-center justify-center bg-white">
-        <Image
-          source={icons.logo}
-          resizeMode="contain"
-          className="w-[80px] h-[80px]"
-        />
-      </View>
+      {isTabScreen && (
+        <View className="absolute left-0 top-0 z-10 w-[115px] h-[115px] items-center justify-center bg-white">
+          <Image
+            source={icons.logo}
+            resizeMode="contain"
+            className="w-[80px] h-[80px]"
+          />
+        </View>
+      )}
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -46,7 +52,7 @@ export default function TabsLayout() {
             display: "flex",
             width: 115,
             height: "100%",
-            paddingTop: 115, // Add padding for the logo
+            paddingTop: isTabScreen ? 115 : 0, // Conditional padding
           },
           tabBarItemStyle: {
             marginVertical: 10,
