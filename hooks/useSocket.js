@@ -10,7 +10,7 @@ export const useSocketStore = create((set, get) => ({
   socket: null,
   error: null,
   recentlyProcessedOrders: new Set(),
-  processedOrders: new Set(),
+  recentlyUpdatedOrders: new Set(),
 
   initializeSocket: () => {
     const { socket } = get();
@@ -31,6 +31,45 @@ export const useSocketStore = create((set, get) => ({
     newSocket.on("connect_error", (error) => {
       console.error("Socket connection error:", error);
       set({ error: "Socket connection error" });
+    });
+
+    newSocket.on("order-updated", async (data) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const { recentlyUpdatedOrders } = get();
+      const orderId = data.order_id;
+
+      if (recentlyUpdatedOrders.has(orderId)) {
+        console.log(
+          `Order update ${orderId} was recently processed locally, ignoring socket event`
+        );
+        return;
+      }
+
+      console.log("Processing order update:", data);
+      console.log("Current update prevention set:", recentlyUpdatedOrders);
+
+      const currentOrders = useSharedStore.getState().orders;
+      const updatedOrder = {
+        ...data,
+        order_details:
+          typeof data.order_details === "string"
+            ? JSON.parse(data.order_details)
+            : data.order_details,
+      };
+
+      const updatedOrders = currentOrders.map((order) =>
+        order.order_id === data.order_id ? updatedOrder : order
+      );
+
+      localStore.set("orders", JSON.stringify(updatedOrders));
+      useSharedStore.getState().setOrders(updatedOrders);
+
+      Toast.show({
+        type: "info",
+        text1: "Order Updated",
+        text2: `Order ${data.order_id} has been updated`,
+      });
     });
 
     newSocket.on("status-update", (data) => {
@@ -55,8 +94,8 @@ export const useSocketStore = create((set, get) => ({
 
     newSocket.on("new-order", async (data) => {
       // Add small delay to ensure client-side tracking is complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const { recentlyProcessedOrders } = get();
       const orderId = data.order_id;
 
@@ -114,16 +153,34 @@ export const useSocketStore = create((set, get) => ({
     return new Promise((resolve) => {
       const { recentlyProcessedOrders } = get();
       console.log(`Tracking order ${orderId} in prevention system`);
-      
+
       recentlyProcessedOrders.add(orderId);
-      
+
       // Resolve immediately but keep the tracking active
       resolve();
-      
+
       setTimeout(() => {
         const { recentlyProcessedOrders } = get();
         recentlyProcessedOrders.delete(orderId);
         console.log(`Removed order ${orderId} from prevention system`);
+      }, 30000);
+    });
+  },
+
+  trackUpdatedOrder: (orderId) => {
+    return new Promise((resolve) => {
+      const { recentlyUpdatedOrders } = get();
+      console.log(`Tracking order update ${orderId} in prevention system`);
+
+      recentlyUpdatedOrders.add(orderId);
+
+      // Resolve immediately but keep tracking active
+      resolve();
+
+      setTimeout(() => {
+        const { recentlyUpdatedOrders } = get();
+        recentlyUpdatedOrders.delete(orderId);
+        console.log(`Removed order update ${orderId} from prevention system`);
       }, 30000);
     });
   },

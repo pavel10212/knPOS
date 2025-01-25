@@ -128,9 +128,9 @@ const EditOrAddOrder = () => {
         }
         : orderDetails;
 
-      // If editing, ensure tracking is set before the API call
+      // If editing, ensure update tracking is set before the API call
       if (isEditMode) {
-        await useSocketStore.getState().trackProcessedOrder(parseInt(order, 10));
+        await useSocketStore.getState().trackUpdatedOrder(parseInt(order, 10));
       }
 
       const response = await fetch(
@@ -164,7 +164,7 @@ const EditOrAddOrder = () => {
 
       localStore.set("orders", JSON.stringify(updatedOrders));
       setOrders(updatedOrders);
-      
+
       setTemporaryOrder([]);
       router.push("home");
     } catch (error) {
