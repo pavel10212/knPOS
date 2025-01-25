@@ -13,10 +13,9 @@ const OrderItem = ({ order }) => {
 
     const handleEditOrder = useCallback(() => {
         router.push({
-            pathname: 'menu',
-            params: { 
+            pathname: 'editOrAddOrder',
+            params: {
                 order: order.order_id,
-                fromTable: true 
             },
         });
     }, [order.order_id]);
@@ -35,7 +34,7 @@ const OrderItem = ({ order }) => {
                 request: item.request || '',
             };
         }),
-        [order.order_details, menu?.menuItems]
+        [order, menu?.menuItems, order]
     );
 
     return (

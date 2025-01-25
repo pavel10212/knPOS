@@ -2,12 +2,12 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import React from 'react';
 import { router } from 'expo-router';
 
-const ActionButtons = ({ onPrintQR, order }) => (
+const ActionButtons = ({ onPrintQR }) => (
     <View className='h-[140px] m-4 gap-2'>
         <View className='flex flex-row h-[65px] gap-2'>
             <TouchableOpacity
                 className='bg-primary flex-1 flex rounded-lg justify-center items-center'
-                onPress={() => router.push('/menu?fromTable=true')}
+                onPress={() => router.push('editOrAddOrder')}
             >
                 <Text className='text-white font-bold text-lg'>Add To Order</Text>
             </TouchableOpacity>

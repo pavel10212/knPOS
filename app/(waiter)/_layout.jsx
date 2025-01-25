@@ -110,6 +110,16 @@ export default function TabsLayout() {
             tabBarStyle: { display: "none" },
           }}
         />
+        <Tabs.Screen
+          name="editOrAddOrder"
+          options={{
+            title: "Edit Order",
+            headerShadowVisible: false,
+            href: null,
+            tabBarStyle: { display: "none" },
+          }}
+        />
+
       </Tabs>
 
       <TouchableOpacity
