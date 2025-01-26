@@ -1,16 +1,14 @@
 import {ScrollView, Text, TouchableOpacity, View} from 'react-native'
 
 const OrderStatus = {
-    PENDING: 'pending',
-    PREPARING: 'preparing',
-    READY: 'ready',
-    DELIVERED: 'delivered'
+    PENDING: 'Pending',
+    READY: 'Ready',
+    DELIVERED: 'Completed'
 }
 
 const getStatusColor = (status) => {
     switch (status) {
         case OrderStatus.PENDING: return 'bg-yellow-500';
-        case OrderStatus.PREPARING: return 'bg-blue-500';
         case OrderStatus.READY: return 'bg-green-500';
         case OrderStatus.DELIVERED: return 'bg-gray-500';
     }

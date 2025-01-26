@@ -1,8 +1,8 @@
-import {ScrollView, View} from 'react-native'
+import { ScrollView, View } from 'react-native'
 import React from 'react'
 import TableOrders from '../../components/TableOrders'
-import {useSharedStore} from "../../hooks/useSharedStore";
-import {findOrdersForTable} from "../../utils/orderUtils";
+import { useSharedStore } from "../../hooks/useSharedStore";
+import { findAllOrdersForTable } from "../../utils/orderUtils";
 
 
 const Order = () => {
@@ -12,7 +12,7 @@ const Order = () => {
 
 
     const tableList = tables.map((table) => {
-        const tableOrders = findOrdersForTable(table.table_num, orders)
+        const tableOrders = findAllOrdersForTable(table.table_num, orders)
         return {
             id: table.table_id,
             name: `Table ${table.table_num}`,
@@ -39,7 +39,7 @@ const Order = () => {
             <ScrollView>
                 <View className="p-4 flex-row flex-wrap">
                     {tableList.map(table => (
-                        <TableOrders key={table.id} table={table}/>
+                        <TableOrders key={table.id} table={table} />
                     ))}
                 </View>
             </ScrollView>

@@ -15,14 +15,12 @@ const EditOrAddOrder = () => {
   const selectedTable = tableStore((state) => state.selectedTable);
   const updateTableStatus = tableStore((state) => state.updateTableStatus);
   const [temporaryOrder, setTemporaryOrder] = useState([]);
-  const updateOrderNotes = tableStore((state) => state.updateOrderNotes);
   const setOrders = useSharedStore((state) => state.setOrders);
   const menu = useSharedStore((state) => state.menu);
   const orders = useSharedStore((state) => state.orders);
 
   const handleNotesChange = (itemTitle, index, newNotes) => {
     if (!selectedTable) return;
-    updateOrderNotes(selectedTable.number, itemTitle, index, newNotes);
   };
 
   const existingOrder = useMemo(() => {
@@ -37,9 +35,19 @@ const EditOrAddOrder = () => {
     [temporaryOrder]
   );
 
-  const handleItemAction = useCallback((item, action) => {
+  const handleItemAction = useCallback((item, action, notes = null) => {
     setTemporaryOrder((prevOrder) => {
       const existingItem = prevOrder.find((o) => o.id === item.menu_item_id);
+
+      // Handle notes update
+      if (notes !== null && existingItem) {
+        return prevOrder.map(curr => 
+          curr.id === item.menu_item_id 
+            ? { ...curr, request: notes }
+            : curr
+        );
+      }
+
       const quantity = action === "add" ? 1 : -1;
 
       if (!existingItem && quantity > 0) {
@@ -260,8 +268,7 @@ const EditOrAddOrder = () => {
                       handleItemAction({ ...item, menu_item_id: id }, "add")
                     }
                     onDecrease={(id) =>
-                      handleItemAction({ ...item, menu_item_id: id }, "remove")
-                    }
+                      handleItemAction({ ...item, menu_item_id: id }, "remove")}
                   />
                 )}
                 keyExtractor={(item) => item.id.toString() + Math.random()}

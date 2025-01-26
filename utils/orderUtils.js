@@ -9,3 +9,7 @@ export const findOrdersForTable = (tableNumber, orders) => {
     const incompleteOrders = allOrders.filter((order) => order.order_status !== 'Completed')
     return incompleteOrders
 }
+
+export const findAllOrdersForTable = (tableNumber, orders) => {
+    return orders.filter((order) => String(order.table_num) === String(tableNumber))
+}

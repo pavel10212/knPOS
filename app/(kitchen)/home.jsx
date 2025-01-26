@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { ScrollView, Text, TouchableOpacity, View, Image } from "react-native";
 import Checkbox from "expo-checkbox";
 import Header from "../../components/Header";
@@ -7,146 +7,122 @@ import { useSharedStore } from "../../hooks/useSharedStore";
 import { loginStore } from "../../hooks/useStore";
 import icons from "../../constants/icons";
 import { router } from "expo-router";
+import { useSocketStore } from "../../hooks/useSocket";
+
+// Utility function moved outside component
+const parseOrderDetails = (details) =>
+  typeof details === 'string' ? JSON.parse(details) : details;
+
+// Custom hook for menu items map
+const useMenuItemsMap = (menuItems) => {
+  return useMemo(() =>
+    menuItems?.reduce((acc, item) => {
+      acc[item.menu_item_id] = item;
+      return acc;
+    }, {}) || {},
+    [menuItems]
+  );
+};
 
 const KitchenHome = () => {
   useKitchenData();
-  const [checkedItems, setCheckedItems] = useState({});
   const orders = useSharedStore((state) => state.orders);
   const menu = useSharedStore((state) => state.menu);
   const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn);
   const setRole = loginStore((state) => state.setRole);
 
-  // Create menuItems lookup map for O(1) access
-  const menuItemsMap = useMemo(() => {
-    return menu.menuItems?.reduce((acc, item) => {
-      acc[item.menu_item_id] = item;
-      return acc;
-    }, {}) || {};
-  }, [menu.menuItems]);
+  // Initialize checkedItems based on order status
+  const [checkedItems, setCheckedItems] = useState(() => {
+    const initialState = {};
+    orders.forEach(order => {
+      const details = parseOrderDetails(order.order_details);
+      details.forEach((item, index) => {
+        if (item.status === 'Ready') {
+          initialState[`${order.order_id}-${index}`] = true;
+        }
+      });
+    });
+    return initialState;
+  });
 
-  // Transform orders into kitchen-friendly format
+  const menuItemsMap = useMenuItemsMap(menu.menuItems);
+
+  // Optimize orders transformation
   const kitchenOrders = useMemo(() => {
     return orders
       .filter(order => order.order_status === 'Pending')
       .sort((a, b) => a.order_id - b.order_id)
-      .map(order => {
-        const orderDetails = typeof order.order_details === 'string'
-          ? JSON.parse(order.order_details)
-          : order.order_details;
-
-        return {
-          id: order.order_id,
-          tableNum: order.table_num,
-          items: orderDetails.map(detail => {
-            const menuItem = menuItemsMap[detail.menu_item_id];
-            return {
-              name: menuItem?.menu_item_name || 'Unknown Item',
-              quantity: detail.quantity,
-              notes: detail.request || ''
-            };
-          })
-        };
-      });
+      .map(order => ({
+        id: order.order_id,
+        tableNum: order.table_num,
+        items: parseOrderDetails(order.order_details).map(detail => ({
+          name: menuItemsMap[detail.menu_item_id]?.menu_item_name || 'Unknown Item',
+          quantity: detail.quantity,
+          notes: detail.request || '',
+          status: detail.status || 'Pending'
+        }))
+      }));
   }, [orders, menuItemsMap]);
 
-
-  const toggleItemCheck = async (orderId, itemIndex) => {
+  // Consolidated update order function
+  const updateOrder = useCallback(async (orderId, updateData) => {
     try {
-      // Get the new check state before updating
-      const newCheckState = !checkedItems[`${orderId}-${itemIndex}`];
-
-      setCheckedItems(prev => ({
-        ...prev,
-        [`${orderId}-${itemIndex}`]: newCheckState
-      }));
-
-      const currentOrder = orders.find(order => order.order_id === orderId);
-
-      const orderDetails = typeof currentOrder.order_details === 'string'
-        ? JSON.parse(currentOrder.order_details)
-        : currentOrder.order_details;
-
-      const updatedOrderDetails = orderDetails.map((detail, index) => {
-        if (index === itemIndex) {
-          return {
-            ...detail,
-            status: newCheckState ? 'Ready' : 'Pending'
-          };
-        }
-        return detail;
-      });
-
-      const updatePayload = {
-        order_id: orderId,
-        order_status: currentOrder.order_status,
-        completion_date_time: currentOrder.completion_date_time || null,
-        order_details: JSON.stringify(updatedOrderDetails)
-      };
-
       const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload)
+        body: JSON.stringify(updateData)
       });
 
       if (!response.ok) throw new Error('Failed to update order');
 
       const updatedOrder = await response.json();
-
-      // Update local state using the response from server
-      const updatedOrders = orders.map(order =>
-        order.order_id === orderId ? updatedOrder : order
+      useSharedStore.getState().setOrders(
+        orders.map(order => order.order_id === orderId ? updatedOrder : order)
       );
-      useSharedStore.getState().setOrders(updatedOrders);
 
+      await useSocketStore.getState().trackUpdatedOrder(orderId);
+      return true;
     } catch (error) {
-      console.error('Error updating item status:', error);
-      // Revert checkbox state on error
+      console.error('Error updating order:', error);
+      return false;
+    }
+  }, [orders]);
+
+  const toggleItemCheck = useCallback(async (orderId, itemIndex) => {
+    const newCheckState = !checkedItems[`${orderId}-${itemIndex}`];
+    const currentOrder = orders.find(order => order.order_id === orderId);
+    if (!currentOrder) return;
+
+    const orderDetails = parseOrderDetails(currentOrder.order_details);
+    
+    // Update the status in orderDetails
+    orderDetails[itemIndex].status = newCheckState ? 'Ready' : 'Pending';
+
+    const success = await updateOrder(orderId, {
+      ...currentOrder,
+      order_details: JSON.stringify(orderDetails),
+      // If all items are ready, update order_status
+      order_status: orderDetails.every(item => item.status === 'Ready') ? 'Ready' : 'Pending'
+    });
+
+    if (success) {
       setCheckedItems(prev => ({
         ...prev,
-        [`${orderId}-${itemIndex}`]: !prev[`${orderId}-${itemIndex}`]
+        [`${orderId}-${itemIndex}`]: newCheckState
       }));
     }
-  };
+  }, [checkedItems, orders, updateOrder]);
 
+  const completeOrder = useCallback(async (orderId) => {
+    const currentOrder = orders.find(order => order.order_id === orderId);
+    if (!currentOrder) return;
 
-  const completeOrder = async (orderId) => {
-    try {
-
-      const currentOrder = orders.find(order => order.order_id === orderId);
-
-      const orderDetails = typeof currentOrder.order_details === 'string'
-        ? currentOrder.order_details
-        : JSON.stringify(currentOrder.order_details);
-
-      const updatePayload = {
-        order_id: orderId,
-        order_status: 'Ready',
-        completion_date_time: new Date().toISOString(),
-        order_details: orderDetails
-      }
-
-
-      const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload)
-      });
-
-      if (!response.ok) throw new Error('Failed to update order');
-
-      // Update local state through useSharedStore
-      const updatedOrders = orders.map(order =>
-        order.order_id === orderId
-          ? { ...order, order_status: 'Ready' }
-          : order
-      );
-      useSharedStore.getState().setOrders(updatedOrders);
-
-    } catch (error) {
-      console.error('Error completing order:', error);
-    }
-  };
+    await updateOrder(orderId, {
+      ...currentOrder,
+      order_status: 'Ready',
+      completion_date_time: new Date().toISOString()
+    });
+  }, [orders, updateOrder]);
 
   return (
     <View className="flex-1 bg-background">
@@ -261,4 +237,5 @@ const KitchenHome = () => {
   );
 };
 
-export default KitchenHome;
+// Optimize component export with memo
+export default React.memo(KitchenHome);
