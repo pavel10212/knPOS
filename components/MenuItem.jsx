@@ -11,7 +11,7 @@ const MenuItem = ({ title, category, price, image, onChangeQuantity, currentQuan
     return (
         <View className='w-[30%] h-[320px] bg-white rounded-2xl m-2 shadow-sm'>
             <View className='w-full h-[200px] rounded-t-2xl overflow-hidden bg-gray-50'>
-                <Image source={image} resizeMode='cover' className='w-full h-full' />
+                <Image source={{ uri: image }} resizeMode='cover' className='w-full h-full' />
             </View>
             <View className='p-4 space-y-2'>
                 <Text className='font-bold text-xl tracking-tight text-gray-800'>{title}</Text>

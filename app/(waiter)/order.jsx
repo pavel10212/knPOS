@@ -4,7 +4,6 @@ import TableOrders from '../../components/TableOrders'
 import { useSharedStore } from "../../hooks/useSharedStore";
 import { findAllOrdersForTable } from "../../utils/orderUtils";
 
-
 const Order = () => {
     const menu = useSharedStore((state) => state.menu)
     const tables = useSharedStore((state) => state.tables)
@@ -21,11 +20,11 @@ const Order = () => {
                     id: order.order_id,
                     status: order.order_status,
                     items: order.order_details.map((item) => {
-                        const menuItem = menu.menuItems.find((menuItem) => menuItem.menu_item_id === item.menu_item_id)
+                        const menuItem = menu.find((menuItem) => menuItem.menu_item_id === item.menu_item_id)
                         return {
-                            name: menuItem.menu_item_name,
+                            name: menuItem?.menu_item_name || "Unknown Item",
                             quantity: item.quantity,
-                            price: menuItem.price,
+                            price: menuItem?.price || 0,
                             status: item.status
                         }
                     })

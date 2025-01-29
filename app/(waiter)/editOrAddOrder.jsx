@@ -80,7 +80,7 @@ const EditOrAddOrder = () => {
           : existingOrder.order_details;
 
       const initialOrder = orderDetails.map((detail) => {
-        const menuItem = menu.menuItems.find(
+        const menuItem = menu.find(
           (mi) => mi.menu_item_id === detail.menu_item_id
         );
         return {
@@ -96,7 +96,7 @@ const EditOrAddOrder = () => {
     } else {
       setTemporaryOrder([]);
     }
-  }, [order, menu.menuItems, existingOrder]);
+  }, [order, menu, existingOrder]);
 
   const handleFinishOrder = useCallback(async () => {
     if (!selectedTable || !temporaryOrder.length) return;
@@ -235,7 +235,7 @@ const EditOrAddOrder = () => {
             </Text>
           </View>
           <FlatList
-            data={menu.menuItems}
+            data={menu}
             renderItem={renderMenuItem}
             keyExtractor={keyExtractor}
             getItemLayout={getItemLayout}

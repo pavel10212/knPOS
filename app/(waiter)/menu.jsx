@@ -32,7 +32,7 @@ const Menu = () => {
                     <Text className='text-2xl font-bold'>Menu View</Text>
                 </View>
                 <FlatList
-                    data={menu.menuItems}
+                    data={menu}
                     renderItem={renderMenuItem}
                     keyExtractor={keyExtractor}
                     getItemLayout={getItemLayout}

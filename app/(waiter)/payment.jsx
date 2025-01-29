@@ -45,7 +45,7 @@ const Payment = () => {
 
     return parsedOrder.flatMap((order, orderIndex) =>
       order.order_details.map((orderDetail, detailIndex) => {
-        const menuItem = menu.menuItems?.find(
+        const menuItem = menu?.find(
           (item) => item.menu_item_id === orderDetail.menu_item_id
         );
         return {
@@ -59,7 +59,7 @@ const Payment = () => {
         };
       })
     );
-  }, [parsedOrder, menu.menuItems]);
+  }, [parsedOrder, menu]);
 
   const [orderItems, setOrderItems] = useState(transformedOrder || []);
 

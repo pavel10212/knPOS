@@ -45,7 +45,7 @@ const KitchenHome = () => {
     return initialState;
   });
 
-  const menuItemsMap = useMenuItemsMap(menu.menuItems);
+  const menuItemsMap = useMenuItemsMap(menu);
 
   // Optimize orders transformation
   const kitchenOrders = useMemo(() => {
