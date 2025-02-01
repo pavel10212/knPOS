@@ -85,10 +85,7 @@ export const useOrderStore = create((set, get) => ({
       if (!response.ok) throw new Error("Failed to fetch orders");
 
       const data = await response.json();
-
       setOrders(data);
-      localStore.set("orders", JSON.stringify(data));
-
       return data;
     } catch (error) {
       console.error("❌ Error fetching orders:", error);

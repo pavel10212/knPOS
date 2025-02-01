@@ -6,6 +6,7 @@ import { router } from "expo-router";
 const OrderItem = ({ order }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const menu = useSharedStore((state) => state.menu);
+  const inventory = useSharedStore((state) => state.inventory);
 
   const handleDropdownClick = useCallback(() => {
     setIsExpanded((prev) => !prev);
@@ -22,20 +23,41 @@ const OrderItem = ({ order }) => {
 
   const orderItems = useMemo(
     () =>
-      order.order_details?.map((item) => {
-        const menuItem = menu?.menuItems?.find(
-          (mi) => mi.menu_item_id === item.menu_item_id
-        );
+      order.items?.map((item) => {
+        if (!item) return null;
+
+        const isInventory = item.type === "inventory";
+        let itemDetails = null;
+
+        if (isInventory) {
+          itemDetails = inventory?.find(
+            (inv) => inv?.inventory_item_id === item.inventory_item_id
+          );
+        } else {
+          itemDetails = menu?.find(
+            (menuItem) => menuItem?.menu_item_id === item.menu_item_id
+          );
+        }
+
+        if (!itemDetails) {
+          return {
+            id: item.menu_item_id || item.inventory_item_id || 'unknown',
+            name: 'Unknown Item',
+            quantity: item.quantity || 0,
+            price: 0,
+            request: item.request || '',
+          };
+        }
+
         return {
-          id: item.menu_item_id,
-          name:
-            menuItem?.menu_item_name || `Unknown Item #${item.menu_item_id}`,
-          quantity: item.quantity,
-          price: menuItem?.price || 0,
-          request: item.request || "",
+          id: isInventory ? itemDetails.inventory_item_id : itemDetails.menu_item_id,
+          name: isInventory ? itemDetails.inventory_item_name : itemDetails.menu_item_name,
+          quantity: item.quantity || 0,
+          price: isInventory ? itemDetails.cost_per_unit : itemDetails.price,
+          request: isInventory ? null : (item.request || ''),
         };
-      }),
-    [order, menu?.menuItems, order]
+      }).filter(Boolean), // Remove any null items
+    [order.items, menu, inventory]
   );
 
   return (
@@ -54,26 +76,32 @@ const OrderItem = ({ order }) => {
 
       {isExpanded && (
         <View className="mt-4">
-          {orderItems?.map((item, index) => (
-            <View
-              key={`${item.id}-${index}`}
-              className="py-2 border-t border-gray-200"
-            >
-              <View className="flex flex-row justify-between items-center">
-                <Text className="font-medium text-base">{item.name}</Text>
-                <Text className="font-medium text-sm">x{item.quantity}</Text>
-                <Text className="font-bold text-base">
-                  ${Number(item.price).toFixed(2)}
-                </Text>
+          {orderItems?.length > 0 ? (
+            orderItems.map((item, index) => (
+              <View
+                key={`${item.id}-${index}`}
+                className="py-2 border-t border-gray-200"
+              >
+                <View className="flex flex-row justify-between items-center">
+                  <Text className="font-medium text-base">{item.name}</Text>
+                  <Text className="font-medium text-sm">x{item.quantity}</Text>
+                  <Text className="font-bold text-base">
+                    ${(Number(item.price) || 0).toFixed(2)}
+                  </Text>
+                </View>
+                {item.request ? (
+                  <Text className="text-sm text-blue-600">
+                    Request: {item.request}
+                  </Text>
+                ) : null}
               </View>
-              <Text className="text-sm text-blue-600">
-                Notes: {item.request || "Add notes..."}
-              </Text>
-            </View>
-          ))}
+            ))
+          ) : (
+            <Text className="text-gray-500">No items in this order</Text>
+          )}
           <View className="py-4 border-t flex flex-row justify-between border-gray-200">
             <Text className="font-bold text-right text-lg">
-              Total: {order.total}
+              Total: {order.total || '$0.00'}
             </Text>
           </View>
         </View>

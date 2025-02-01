@@ -50,12 +50,14 @@ const KitchenHome = () => {
   // Optimize orders transformation
   const kitchenOrders = useMemo(() => {
     return orders
-      .filter(order => order.order_status === 'Pending')
+      .filter(order => order.order_status === 'Pending' )
       .sort((a, b) => a.order_id - b.order_id)
       .map(order => ({
         id: order.order_id,
         tableNum: order.table_num,
-        items: parseOrderDetails(order.order_details).map(detail => ({
+        items: parseOrderDetails(order.order_details)
+            .filter(detail => detail.type !== 'inventory')
+            .map(detail => ({
           name: menuItemsMap[detail.menu_item_id]?.menu_item_name || 'Unknown Item',
           quantity: detail.quantity,
           notes: detail.request || '',

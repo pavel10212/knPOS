@@ -4,10 +4,12 @@ import MenuItem from "../../components/MenuItem";
 import { useLocalSearchParams, router } from "expo-router";
 import { tableStore } from "../../hooks/useStore";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useInventoryStore } from "../../hooks/useInventoryData";
 import { useSharedStore } from "../../hooks/useSharedStore";
 import { useSocketStore } from "../../hooks/useSocket";
 import { localStore } from "../../hooks/Storage/cache";
 import MenuOrderItem from "../../components/menuOrderItem";
+import InventoryItem from "../../components/InventoryItem";
 
 const EditOrAddOrder = () => {
   const { order } = useLocalSearchParams();
@@ -18,6 +20,8 @@ const EditOrAddOrder = () => {
   const setOrders = useSharedStore((state) => state.setOrders);
   const menu = useSharedStore((state) => state.menu);
   const orders = useSharedStore((state) => state.orders);
+  const [activeTab, setActiveTab] = useState('menu');
+  const inventory = useSharedStore((state) => state.inventory);
 
   const handleNotesChange = (itemTitle, index, newNotes) => {
     if (!selectedTable) return;
@@ -41,8 +45,8 @@ const EditOrAddOrder = () => {
 
       // Handle notes update
       if (notes !== null && existingItem) {
-        return prevOrder.map(curr => 
-          curr.id === item.menu_item_id 
+        return prevOrder.map(curr =>
+          curr.id === item.menu_item_id
             ? { ...curr, request: notes }
             : curr
         );
@@ -72,6 +76,38 @@ const EditOrAddOrder = () => {
     });
   }, []);
 
+  const handleInventoryAction = useCallback((item, action) => {
+    setTemporaryOrder((prevOrder) => {
+      const existingItem = prevOrder.find(
+        (o) => o.id === item.inventory_item_id && o.type === 'inventory'
+      );
+
+      const quantity = action === "add" ? 1 : -1;
+
+      if (!existingItem && quantity > 0) {
+        return [
+          ...prevOrder,
+          {
+            id: item.inventory_item_id,
+            name: item.inventory_item_name,
+            price: item.cost_per_unit,
+            quantity,
+            type: 'inventory'
+          },
+        ];
+      }
+
+      return prevOrder.reduce((acc, curr) => {
+        if (curr.id !== item.inventory_item_id || curr.type !== 'inventory')
+          return [...acc, curr];
+        const newQuantity = curr.quantity + quantity;
+        return newQuantity > 0
+          ? [...acc, { ...curr, quantity: newQuantity }]
+          : acc;
+      }, []);
+    });
+  }, []);
+
   useEffect(() => {
     if (existingOrder) {
       const orderDetails =
@@ -80,23 +116,38 @@ const EditOrAddOrder = () => {
           : existingOrder.order_details;
 
       const initialOrder = orderDetails.map((detail) => {
-        const menuItem = menu.find(
-          (mi) => mi.menu_item_id === detail.menu_item_id
-        );
-        return {
-          id: detail.menu_item_id,
-          name:
-            menuItem?.menu_item_name || `Unknown item ${detail.menu_item_id}`,
-          price: menuItem?.price || 0,
-          quantity: detail.quantity,
-          request: detail.request || "",
-        };
+        const isInventory = detail.type === "inventory";
+        let itemDetails;
+
+        if (isInventory) {
+          itemDetails = inventory?.find(
+            (inv) => inv.inventory_item_id === detail.inventory_item_id
+          );
+          return {
+            id: detail.inventory_item_id,
+            name: itemDetails?.inventory_item_name || `Unknown item ${detail.inventory_item_id}`,
+            price: itemDetails?.cost_per_unit || 0,
+            quantity: detail.quantity,
+            type: 'inventory'
+          };
+        } else {
+          itemDetails = menu?.find(
+            (mi) => mi.menu_item_id === detail.menu_item_id
+          );
+          return {
+            id: detail.menu_item_id,
+            name: itemDetails?.menu_item_name || `Unknown item ${detail.menu_item_id}`,
+            price: itemDetails?.price || 0,
+            quantity: detail.quantity,
+            request: detail.request || "",
+          };
+        }
       });
       setTemporaryOrder(initialOrder);
     } else {
       setTemporaryOrder([]);
     }
-  }, [order, menu, existingOrder]);
+  }, [order, menu, inventory, existingOrder]);
 
   const handleFinishOrder = useCallback(async () => {
     if (!selectedTable || !temporaryOrder.length) return;
@@ -116,7 +167,8 @@ const EditOrAddOrder = () => {
         completion_date_time: null,
         order_details: JSON.stringify(
           temporaryOrder.map((item) => ({
-            menu_item_id: item.id,
+            [item.type === 'inventory' ? 'inventory_item_id' : 'menu_item_id']: item.id,
+            type: item.type || 'menu',
             status: "pending",
             quantity: item.quantity,
             request: item.request || "",
@@ -173,6 +225,9 @@ const EditOrAddOrder = () => {
       localStore.set("orders", JSON.stringify(updatedOrders));
       setOrders(updatedOrders);
 
+      useInventoryStore.getState().fetchInventory();
+
+
       setTemporaryOrder([]);
       router.push("home");
     } catch (error) {
@@ -185,14 +240,14 @@ const EditOrAddOrder = () => {
       ({ item }) =>
       (
         <MenuItem
-          key={`menu-item-${item.menu_item_id}`}
+          key={`menu-item-${item?.menu_item_id}`}
           title={item.menu_item_name}
           category={item.category}
           price={item.price}
           image={item.menu_item_image || "/assets/images/favicon.png"}
           request={item.request}
           currentQuantity={
-            temporaryOrder.find((o) => o.id === item.menu_item_id)
+            temporaryOrder.find((o) => o.id === item.menu_item_id && !o.type)
               ?.quantity || 0
           }
           description={item.description}
@@ -205,7 +260,34 @@ const EditOrAddOrder = () => {
     [temporaryOrder, handleItemAction, handleNotesChange]
   );
 
-  const keyExtractor = useCallback((item) => item.menu_item_id.toString(), []);
+  const renderInventoryItem = useMemo(
+    () =>
+      ({ item }) => (
+        <InventoryItem
+          key={`inventory-item-${item.inventory_item_id}`}
+          title={item.inventory_item_name}
+          quantity={item.quantity}
+          unit={item.cost_per_unit}
+          currentQuantity={
+            temporaryOrder.find(
+              (o) => o.id === item.inventory_item_id && o.type === 'inventory'
+            )
+          }
+          onChangeQuantity={(action) => handleInventoryAction(item, action)}
+          isEditMode={true}
+        />
+      ),
+    [temporaryOrder, handleInventoryAction]
+  );
+
+  const menuKeyExtractor = useCallback((item) =>
+    `menu-${item?.menu_item_id || Math.random()}`,
+    []);
+
+  const inventoryKeyExtractor = useCallback((item) =>
+    `inventory-${item?.inventory_item_id || Math.random()}`,
+    []);
+
   const getItemLayout = useCallback(
     (_, index) => ({
       length: 200,
@@ -228,27 +310,57 @@ const EditOrAddOrder = () => {
       <View className="flex-1 flex-row">
         <View className="flex-1">
           <View className="px-6 py-4 bg-white border-b border-gray-200">
-            <Text className="text-2xl font-bold ml-8">
+            <Text className="text-2xl font-bold ml-8 mb-4">
               {isEditMode
                 ? `Edit Order #${order} - Table ${selectedTable?.table_num}`
                 : `New Order - Table ${selectedTable?.table_num}`}
             </Text>
+            <View className="flex-row">
+              <TouchableOpacity
+                onPress={() => setActiveTab('menu')}
+                className={`px-4 py-2 mr-2 rounded-t-lg ${activeTab === 'menu' ? 'bg-primary' : 'bg-gray-200'}`}
+              >
+                <Text className={activeTab === 'menu' ? 'text-white font-bold' : 'text-gray-600'}>Menu</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setActiveTab('inventory')}
+                className={`px-4 py-2 rounded-t-lg ${activeTab === 'inventory' ? 'bg-primary' : 'bg-gray-200'}`}
+              >
+                <Text className={activeTab === 'inventory' ? 'text-white font-bold' : 'text-gray-600'}>Inventory</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <FlatList
-            data={menu}
-            renderItem={renderMenuItem}
-            keyExtractor={keyExtractor}
-            getItemLayout={getItemLayout}
-            initialNumToRender={9}
-            maxToRenderPerBatch={6}
-            windowSize={5}
-            numColumns={3}
-            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-            columnWrapperStyle={{
-              justifyContent: "space-between",
-              marginHorizontal: 16,
-            }}
-          />
+
+          <View style={{ display: activeTab === 'menu' ? 'flex' : 'none', flex: 1 }}>
+            <FlatList
+              key="menuList"
+              data={menu}
+              renderItem={renderMenuItem}
+              keyExtractor={menuKeyExtractor}
+              getItemLayout={getItemLayout}
+              initialNumToRender={9}
+              maxToRenderPerBatch={6}
+              windowSize={5}
+              numColumns={3}
+              contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+              columnWrapperStyle={{
+                justifyContent: "space-between",
+                marginHorizontal: 16,
+              }}
+            />
+          </View>
+
+          <View style={{ display: activeTab === 'inventory' ? 'flex' : 'none', flex: 1 }}>
+            <FlatList
+              key="inventoryList"
+              data={inventory}
+              renderItem={renderInventoryItem}
+              keyExtractor={inventoryKeyExtractor}
+              initialNumToRender={9}
+              maxToRenderPerBatch={6}
+              contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+            />
+          </View>
         </View>
 
         <View className="w-[300px] bg-white border-l border-gray-200 flex flex-col fixed right-0 top-0 bottom-0 shadow-lg">
@@ -258,20 +370,25 @@ const EditOrAddOrder = () => {
             </Text>
           </View>
           <View className="flex-1">
-            {temporaryOrder ? (
+            {temporaryOrder?.length > 0 ? (
               <FlatList
                 data={temporaryOrder}
                 renderItem={({ item }) => (
                   <MenuOrderItem
                     order={item}
                     onIncrease={(id) =>
-                      handleItemAction({ ...item, menu_item_id: id }, "add")
+                      item.type === 'inventory'
+                        ? handleInventoryAction({ inventory_item_id: id, ...item }, "add")
+                        : handleItemAction({ menu_item_id: id, ...item }, "add")
                     }
                     onDecrease={(id) =>
-                      handleItemAction({ ...item, menu_item_id: id }, "remove")}
+                      item.type === 'inventory'
+                        ? handleInventoryAction({ inventory_item_id: id, ...item }, "remove")
+                        : handleItemAction({ menu_item_id: id, ...item }, "remove")
+                    }
                   />
                 )}
-                keyExtractor={(item) => item.id.toString() + Math.random()}
+                keyExtractor={(item) => `${item.type || 'menu'}-${item.id}-${Math.random()}`}
               />
             ) : (
               <Text className="p-4 text-gray-500">No items in order</Text>
