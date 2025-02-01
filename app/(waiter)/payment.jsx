@@ -11,7 +11,6 @@ import { tableStore } from "../../hooks/useStore";
 import { useMemo, useState, useCallback, useEffect } from "react"; // Add useEffect to imports
 import icons from "../../constants/icons";
 import PayItem from "../../components/PayItem";
-import TipButton from "../../components/TipButton";
 import { findOrdersForTable } from "../../utils/orderUtils";
 import PaymentMethod from "../../components/PaymentMethod";
 import { router } from "expo-router";
@@ -24,6 +23,7 @@ const Payment = () => {
   const updateTableStatus = tableStore((state) => state.updateTableStatus);
   const menu = useSharedStore((state) => state.menu);
   const setOrders = useSharedStore((state) => state.setOrders);
+  const inventory = useSharedStore((state) => state.inventory); // Add this line
 
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [tipAmount, setTipAmount] = useState(0); // Changed from tipPercentage
@@ -45,21 +45,37 @@ const Payment = () => {
 
     return parsedOrder.flatMap((order, orderIndex) =>
       order.order_details.map((orderDetail, detailIndex) => {
-        const menuItem = menu?.find(
-          (item) => item.menu_item_id === orderDetail.menu_item_id
-        );
-        return {
-          // Create a more unique ID by combining multiple values
-          id: `${order.order_id}-${orderDetail.menu_item_id}-${orderIndex}-${detailIndex}`,
-          name: menuItem?.menu_item_name,
-          price: menuItem?.price,
-          quantity: orderDetail.quantity,
-          originalOrderId: order.order_id,
-          originalMenuItemId: orderDetail.menu_item_id,
-        };
+        // Check if the item is from inventory or menu
+        if (orderDetail.type === 'inventory') {
+          const inventoryItem = inventory?.find(
+            (item) => item.inventory_item_id === orderDetail.inventory_item_id
+          );
+          return {
+            id: `${order.order_id}-inv-${orderDetail.inventory_item_id}-${orderIndex}-${detailIndex}`,
+            name: inventoryItem?.inventory_item_name,
+            price: inventoryItem?.cost_per_unit,
+            quantity: orderDetail.quantity,
+            originalOrderId: order.order_id,
+            originalInventoryItemId: orderDetail.inventory_item_id,
+            type: 'inventory'
+          };
+        } else {
+          const menuItem = menu?.find(
+            (item) => item.menu_item_id === orderDetail.menu_item_id
+          );
+          return {
+            id: `${order.order_id}-menu-${orderDetail.menu_item_id}-${orderIndex}-${detailIndex}`,
+            name: menuItem?.menu_item_name,
+            price: menuItem?.price,
+            quantity: orderDetail.quantity,
+            originalOrderId: order.order_id,
+            originalMenuItemId: orderDetail.menu_item_id,
+            type: 'menu'
+          };
+        }
       })
     );
-  }, [parsedOrder, menu]);
+  }, [parsedOrder, menu, inventory]);
 
   const [orderItems, setOrderItems] = useState(transformedOrder || []);
 
@@ -134,12 +150,15 @@ const Payment = () => {
               const matchingItem = orderItems.find(
                 (item) =>
                   item.originalOrderId === order.order_id &&
-                  item.originalMenuItemId === orderDetail.menu_item_id
+                  ((orderDetail.type === 'inventory' && item.originalInventoryItemId === orderDetail.inventory_item_id) ||
+                    ((!orderDetail.type || orderDetail.type === 'menu') && item.originalMenuItemId === orderDetail.menu_item_id))
               );
               return {
                 status: "completed",
                 quantity: matchingItem?.quantity || orderDetail.quantity,
                 menu_item_id: orderDetail.menu_item_id,
+                inventory_item_id: orderDetail.inventory_item_id,
+                type: orderDetail.type || 'menu'
               };
             })
           );
@@ -313,16 +332,14 @@ const Payment = () => {
                         <TouchableOpacity
                           key={amount}
                           onPress={() => setCashReceived(amount)}
-                          className={`px-4 py-2 rounded-lg ${
-                            cashReceived === amount ? "bg-primary" : "bg-white"
-                          }`}
+                          className={`px-4 py-2 rounded-lg ${cashReceived === amount ? "bg-primary" : "bg-white"
+                            }`}
                         >
                           <Text
-                            className={`font-medium ${
-                              cashReceived === amount
-                                ? "text-white"
-                                : "text-gray-700"
-                            }`}
+                            className={`font-medium ${cashReceived === amount
+                              ? "text-white"
+                              : "text-gray-700"
+                              }`}
                           >
                             ${amount}
                           </Text>
@@ -348,9 +365,8 @@ const Payment = () => {
                   <View key={label} className="flex flex-row justify-between">
                     <Text className="text-gray-600 text-sm">{label}</Text>
                     <Text
-                      className={`font-medium text-sm ${
-                        isNegative ? "text-red-500" : ""
-                      }`}
+                      className={`font-medium text-sm ${isNegative ? "text-red-500" : ""
+                        }`}
                     >
                       {isNegative ? "-" : ""}${Math.abs(value).toFixed(2)}
                     </Text>
@@ -366,16 +382,14 @@ const Payment = () => {
                 {selectedMethod === "cash" && cashReceived > 0 && (
                   <View className="flex flex-row justify-between pt-1 border-t border-dashed">
                     <Text
-                      className={`font-bold ${
-                        cashReceived > total ? "text-green-500" : "text-red-500"
-                      }`}
+                      className={`font-bold ${cashReceived > total ? "text-green-500" : "text-red-500"
+                        }`}
                     >
                       Change
                     </Text>
                     <Text
-                      className={`${
-                        cashReceived > total ? "text-green-500" : "text-red-500"
-                      }`}
+                      className={`${cashReceived > total ? "text-green-500" : "text-red-500"
+                        }`}
                     >
                       ${Math.abs(cashReceived - total).toFixed(2)}
                     </Text>
@@ -402,16 +416,14 @@ const Payment = () => {
                         <TouchableOpacity
                           key={amount}
                           onPress={() => setTipAmount(amount)}
-                          className={`px-4 py-2 rounded-lg ${
-                            tipAmount === amount ? "bg-primary" : "bg-white"
-                          }`}
+                          className={`px-4 py-2 rounded-lg ${tipAmount === amount ? "bg-primary" : "bg-white"
+                            }`}
                         >
                           <Text
-                            className={`font-medium ${
-                              tipAmount === amount
-                                ? "text-white"
-                                : "text-gray-700"
-                            }`}
+                            className={`font-medium ${tipAmount === amount
+                              ? "text-white"
+                              : "text-gray-700"
+                              }`}
                           >
                             ${amount}
                           </Text>
