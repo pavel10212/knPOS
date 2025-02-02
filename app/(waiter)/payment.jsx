@@ -6,9 +6,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { localStore } from "../../hooks/Storage/cache";
 import { tableStore } from "../../hooks/useStore";
-import { useMemo, useState, useCallback, useEffect } from "react"; // Add useEffect to imports
+import { useMemo, useState, useCallback, useEffect } from "react";
 import icons from "../../constants/icons";
 import PayItem from "../../components/PayItem";
 import { findOrdersForTable } from "../../utils/orderUtils";
@@ -23,16 +22,16 @@ const Payment = () => {
   const updateTableStatus = tableStore((state) => state.updateTableStatus);
   const menu = useSharedStore((state) => state.menu);
   const setOrders = useSharedStore((state) => state.setOrders);
-  const inventory = useSharedStore((state) => state.inventory); // Add this line
+  const inventory = useSharedStore((state) => state.inventory);
 
   const [selectedMethod, setSelectedMethod] = useState(null);
-  const [tipAmount, setTipAmount] = useState(0); // Changed from tipPercentage
+  const [tipAmount, setTipAmount] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [cashReceived, setCashReceived] = useState(0);
 
   const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20, 50];
   const CASH_AMOUNTS = [100, 200, 300, 500, 1000];
-  const TIP_AMOUNTS = [20, 40, 50, 100, 150]; // Add tip amounts
+  const TIP_AMOUNTS = [20, 40, 50, 100, 150];
 
   const parsedOrder = useMemo(
     () => findOrdersForTable(selectedTable?.table_num, orders),
@@ -79,12 +78,10 @@ const Payment = () => {
 
   const [orderItems, setOrderItems] = useState(transformedOrder || []);
 
-  // Add this useEffect to update orderItems when transformedOrder changes
   useEffect(() => {
     setOrderItems(transformedOrder || []);
   }, [transformedOrder]);
 
-  // Memoize calculations
   const calculations = useMemo(() => {
     const subtotal =
       orderItems?.reduce((sum, item) => sum + item.price * item.quantity, 0) ||
@@ -92,7 +89,7 @@ const Payment = () => {
 
     const discountAmount = subtotal * (discount / 100);
     const vat = subtotal * 0.1;
-    const total = subtotal - discountAmount + vat; // Remove tip from total
+    const total = subtotal - discountAmount + vat;
 
     return {
       subtotal,
@@ -100,12 +97,12 @@ const Payment = () => {
       serviceCharge: 0,
       discountAmount,
       vat,
-      total, // This is now without tip
+      total,
     };
-  }, [orderItems, discount, transformedOrder]); // Remove tipAmount from dependencies since it's not used in calculation
+  }, [orderItems, discount, transformedOrder]);
 
   // Destructure values from calculations for use in render
-  const { subtotal, tip, serviceCharge, discountAmount, vat, total } =
+  const { subtotal, serviceCharge, discountAmount, vat, total } =
     calculations;
 
   // Optimize item manipulation callbacks
@@ -171,7 +168,7 @@ const Payment = () => {
               body: JSON.stringify({
                 order_id: order.order_id,
                 total_amount: calculations.total,
-                tip_amout: calculations.tip,
+                tip_amount: tipAmount,
                 order_status: "Completed",
                 completion_date_time: new Date().toISOString(),
                 order_details: updatedOrderDetails,
@@ -189,14 +186,6 @@ const Payment = () => {
         ...orders.filter((order) => !parsedOrder.includes(order)),
         ...updatedOrders,
       ]);
-
-      localStore.set(
-        "orders",
-        JSON.stringify([
-          ...orders.filter((order) => !parsedOrder.includes(order)),
-          ...updatedOrders,
-        ])
-      );
 
       await updateTableStatus(selectedTable.table_num, "Available");
       router.push("/home");

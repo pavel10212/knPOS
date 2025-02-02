@@ -10,7 +10,7 @@ import { router } from "expo-router";
 import { useSocketStore } from "../../hooks/useSocket";
 import { parseOrderDetails, createMenuItemsMap, getInitialCheckedItems } from "../../utils/kitchenUtils";
 
-const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck, onComplete }) => {
+const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck }) => {
   return (
     <View className="bg-white w-[300px] rounded-lg shadow-lg p-4 border border-gray-100">
       <View className="flex-row justify-between items-center mb-3 pb-2 border-b border-gray-100">
@@ -23,31 +23,22 @@ const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck, onComplet
           </Text>
         </View>
         <View className="bg-yellow-100 px-3 py-1 rounded-full">
-          <Text className="text-yellow-700 font-medium">Pending</Text>
+          <Text className="text-yellow-700 font-medium">In Progress</Text>
         </View>
       </View>
 
       <ScrollView className="max-h-[300px]">
         <View className="space-y-3">
           {order.items.map((item, index) => (
-            <View
-              key={index}
-              className={`p-3 rounded-lg ${checkedItems[`${order.id}-${index}`]
-                ? 'bg-gray-50'
-                : 'bg-white'
-                }`}
-            >
+            <View key={index} className="p-3 rounded-lg bg-white">
               <View className="flex-row justify-between items-center">
                 <View className="flex-1">
-                  <Text className="text-base font-semibold">
-                    {item.name}
-                  </Text>
+                  <Text className="text-base font-semibold">{item.name}</Text>
                   <Text className="text-sm text-gray-500">
                     Quantity: {item.quantity}
                   </Text>
                 </View>
                 <Checkbox
-                  style={{ marginLeft: 8 }}
                   value={checkedItems[`${order.id}-${index}`]}
                   onValueChange={() => onToggleCheck(index)}
                   color={checkedItems[`${order.id}-${index}`] ? "#8390DA" : undefined}
@@ -64,15 +55,6 @@ const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck, onComplet
           ))}
         </View>
       </ScrollView>
-
-      <TouchableOpacity
-        className="bg-primary rounded-lg mt-4 py-3 shadow-sm"
-        onPress={onComplete}
-      >
-        <Text className="text-white text-center text-base font-bold">
-          Mark as Complete
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 });
@@ -96,13 +78,13 @@ const KitchenHome = () => {
     if (!orders || !menuItemsMap) return [];
 
     return orders
-      .filter(order => order.order_status === 'Pending')
+      .filter(order => order.order_status === 'In Progress')
       .sort((a, b) => a.order_id - b.order_id)
       .map(order => ({
         id: order.order_id,
         tableNum: order.table_num,
         items: parseOrderDetails(order.order_details)
-          .filter(detail => detail.type !== 'inventory')
+          .filter(detail => detail.type === 'menu')
           .map(detail => ({
             name: menuItemsMap[detail.menu_item_id]?.menu_item_name || 'Unknown Item',
             quantity: detail.quantity,
@@ -137,40 +119,31 @@ const KitchenHome = () => {
   }, [orders]);
 
   const toggleItemCheck = useCallback(async (orderId, itemIndex) => {
-    const newCheckState = !checkedItems[`${orderId}-${itemIndex}`];
     const currentOrder = orders.find(order => order.order_id === orderId);
     if (!currentOrder) return;
 
     const orderDetails = parseOrderDetails(currentOrder.order_details);
+    const newStatus = orderDetails[itemIndex].status === 'Ready' ? 'Pending' : 'Ready';
+    orderDetails[itemIndex].status = newStatus;
 
-    // Update the status in orderDetails
-    orderDetails[itemIndex].status = newCheckState ? 'Ready' : 'Pending';
+    const allItemsReady = orderDetails
+      .filter(d => d.type === 'menu')
+      .every(d => d.status === 'Ready');
+    const newOrderStatus = allItemsReady ? 'Ready' : 'In Progress';
 
     const success = await updateOrder(orderId, {
       ...currentOrder,
       order_details: JSON.stringify(orderDetails),
-      // If all items are ready, update order_status
-      order_status: orderDetails.every(item => item.status === 'Ready') ? 'Ready' : 'Pending'
+      order_status: newOrderStatus
     });
 
     if (success) {
       setCheckedItems(prev => ({
         ...prev,
-        [`${orderId}-${itemIndex}`]: newCheckState
+        [`${orderId}-${itemIndex}`]: newStatus === 'Ready'
       }));
     }
   }, [checkedItems, orders, updateOrder]);
-
-  const completeOrder = useCallback(async (orderId) => {
-    const currentOrder = orders.find(order => order.order_id === orderId);
-    if (!currentOrder) return;
-
-    await updateOrder(orderId, {
-      ...currentOrder,
-      order_status: 'Ready',
-      completion_date_time: new Date().toISOString()
-    });
-  }, [orders, updateOrder]);
 
   return (
     <View className="flex-1 bg-background">
@@ -218,7 +191,6 @@ const KitchenHome = () => {
                   order={order}
                   checkedItems={checkedItems}
                   onToggleCheck={(itemIndex) => toggleItemCheck(order.id, itemIndex)}
-                  onComplete={() => completeOrder(order.id)}
                 />
               ))}
             </View>
