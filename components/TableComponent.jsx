@@ -1,5 +1,5 @@
 import { Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import { tableStore } from '../hooks/useStore';
 
 const TableComponent = ({
@@ -9,7 +9,8 @@ const TableComponent = ({
     status,
     reservation_details,
     location,
-    rotation
+    rotation,
+    onReserve
 }) => {
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = -50;
@@ -21,14 +22,17 @@ const TableComponent = ({
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
 
     const isDropdownOpen = dropdownTableNumber === table_num;
+    const [isReservationVisible, setIsReservationVisible] = useState(false);
 
     const ifLongPressed = () => {
+        setIsReservationVisible(false);
         setDropdownTable(isDropdownOpen ? null : table_num);
     }
 
     const handleStatusChange = async (newStatus) => {
         if (newStatus === 'reserved') {
-            handleReservation(table_num);
+            setDropdownTable(null);
+            onReserve(table_num);
             return;
         }
         try {
@@ -59,116 +63,150 @@ const TableComponent = ({
 
     const shape = capacity === 2 ? 'rounded-full' : 'rounded-lg'
 
+    const getBasePosition = () => ({
+        left: ((location?.x || 0) * SCALE_FACTOR) + OFFSET_X,
+        top: ((location?.y || 0) * SCALE_FACTOR) + OFFSET_Y
+    });
+
     const getDropdownPosition = () => {
-        const baseLeft = ((location?.x || 0) * SCALE_FACTOR) + OFFSET_X;
-        const baseTop = ((location?.y || 0) * SCALE_FACTOR) + OFFSET_Y;
+        const base = getBasePosition();
         
-        // Adjust position based on rotation
         if (rotation === 90 || rotation === -270) {
             return {
-                left: baseLeft - (capacity === 6 ? 20 : 0),  // Adjust for wider tables
-                top: baseTop + (capacity === 6 ? 150 : 120)
+                left: base.left - (capacity === 6 ? 20 : 0),
+                top: base.top + (capacity === 6 ? 150 : 120)
             };
         }
         
         return {
-            left: baseLeft,
-            top: baseTop + (capacity === 6 ? 120 : 120)
+            left: base.left,
+            top: base.top + 120
         };
+    };
+
+    const getReservationPosition = () => {
+        const base = getBasePosition();
+        return {
+            left: base.left - 20,
+            top: base.top - 100
+        };
+    };
+
+    const getCounterRotation = () => ({
+        transform: [{ rotate: `${-(rotation || 0)}deg` }]
+    });
+
+    const handleOutsideClick = () => {
+        setIsReservationVisible(false);
+        setDropdownTable(null);
+    };
+
+    const toggleReservationDetails = (e) => {
+        e.stopPropagation();
+        if (isDropdownOpen) return;
+        setIsReservationVisible(!isReservationVisible);
+    };
+
+    const handleTableClick = (e) => {
+        e.stopPropagation();
+        if (isDropdownOpen || isReservationVisible) {
+            handleOutsideClick();
+            return;
+        }
+        selectTable({ table_num, orders, capacity, status, reservation_details });
     };
 
     return (
         <View style={{ position: 'relative' }}>
-            {isDropdownOpen && (
-                <TouchableWithoutFeedback onPress={() => setDropdownTable(null)}>
-                    <View 
-                        style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            right: 0,
-                            bottom: 0,
-                            zIndex: 998
-                        }}
-                    />
-                </TouchableWithoutFeedback>
-            )}
-            
+            {/* Table Container */}
             <View style={{
                 position: 'absolute',
-                left: ((location?.x || 0) * SCALE_FACTOR) + OFFSET_X,
-                top: ((location?.y || 0) * SCALE_FACTOR) + OFFSET_Y,
+                ...getBasePosition(),
                 transform: [{ rotate: `${rotation || 0}deg` }],
                 zIndex: 1
             }}>
                 <TouchableOpacity
-                    onPress={(e) => {
-                        e.stopPropagation();
-                        selectTable({ table_num, orders, capacity, status, reservation_details });
-                    }}
-                    onLongPress={(e) => {
-                        e.stopPropagation();
-                        ifLongPressed();
-                    }}
+                    onPress={handleTableClick}
+                    onLongPress={ifLongPressed}
                     className={`${getBackgroundColor()} ${getTableSize()} ${shape} justify-center items-center relative border-2 border-white`}
                 >
-                    <View className="absolute inset-0 flex justify-center items-center">
+                    <View className="absolute inset-0 flex justify-center items-center" style={getCounterRotation()}>
                         <Text className="text-white font-semibold text-base text-center">Table {table_num}</Text>
                         <Text className="text-white text-sm text-center">{capacity} Persons</Text>
+                        {status === 'Reserved' && (
+                            <TouchableOpacity onPress={toggleReservationDetails} className="mt-1">
+                                <Text className="text-white text-xs underline">
+                                    {isReservationVisible ? 'Hide Details' : 'View Details'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
-
-                    {status === 'Reserved' && reservation_details && (
-                        <View className="absolute bottom-1 left-2 right-2 rounded-sm">
-                            <Text className="text-white text-xs text-center" numberOfLines={1}>
-                                {reservation_details}
-                            </Text>
-                        </View>
-                    )}
                 </TouchableOpacity>
             </View>
 
-            {isDropdownOpen && (
-                <View 
-                    style={{
+            {/* Dropdown Overlay */}
+            {(isDropdownOpen || isReservationVisible) && (
+                <TouchableWithoutFeedback onPress={handleOutsideClick}>
+                    <View style={{
                         position: 'absolute',
-                        ...getDropdownPosition(),
-                        backgroundColor: 'white',
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: '#e5e7eb',
-                        width: 160,
-                        shadowColor: "#000",
-                        shadowOffset: {
-                            width: 0,
-                            height: 2,
-                        },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 3.84,
-                        elevation: 5,
-                        zIndex: 999
-                    }}
-                >
-                    <TouchableOpacity
-                        className="p-2"
-                        onPress={() => handleStatusChange('available')}
-                    >
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 998
+                    }}/>
+                </TouchableWithoutFeedback>
+            )}
+
+            {/* Status Dropdown */}
+            {isDropdownOpen && (
+                <View style={{
+                    position: 'absolute',
+                    ...getDropdownPosition(),
+                    backgroundColor: 'white',
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: '#e5e7eb',
+                    width: 160,
+                    zIndex: 999
+                }}>
+                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('available')}>
                         <Text>Available</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        className="p-2"
-                        onPress={() => {
-                            setDropdownTable(null);
-                            handleStatusChange('reserved')
-                        }}
-                    >
+                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('reserved')}>
                         <Text>Reserved</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        className="p-2"
-                        onPress={() => handleStatusChange('unavailable')}
-                    >
+                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('unavailable')}>
                         <Text>Unavailable</Text>
                     </TouchableOpacity>
+                </View>
+            )}
+
+            {/* Reservation Details */}
+            {isReservationVisible && (
+                <View style={{
+                    position: 'absolute',
+                    ...getReservationPosition(),
+                    backgroundColor: 'rgba(0,0,0,0.9)',
+                    borderRadius: 8,
+                    padding: 12,
+                    width: 200,
+                    zIndex: 999
+                }}>
+                    <Text className="text-white text-sm font-bold mb-1">
+                        {reservation_details?.customerName}
+                    </Text>
+                    <Text className="text-white text-xs mb-2">
+                        Arrival: {reservation_details?.arrivalTime}
+                    </Text>
+                    {reservation_details?.specialRequests && (
+                        <View className="border-t border-white/20 pt-2">
+                            <Text className="text-white/80 text-xs mb-1">Special Requests:</Text>
+                            <Text className="text-white text-xs italic">
+                                {reservation_details.specialRequests}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             )}
         </View>

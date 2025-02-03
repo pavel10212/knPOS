@@ -2,8 +2,9 @@ import {Image, Text, TextInput, TouchableOpacity, View} from 'react-native'
 import React, {useState} from 'react'
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import icons from '../constants/icons';
+import { tableStore } from '../hooks/useStore';
 
-const ReservedModal = ({ visible, onClose, onConfirm, tableNumber }) => {
+const ReservedModal = ({ visible, onClose, tableNumber }) => {
     const [customerName, setCustomerName] = useState('');
     const [description, setDescription] = useState('');
     const [time, setTime] = useState('12:00');
@@ -31,21 +32,31 @@ const ReservedModal = ({ visible, onClose, onConfirm, tableNumber }) => {
         setSelectedDate(new Date());
     };
 
-    const handleConfirmAndReset = () => {
-        onConfirm({
+    const handleConfirmAndReset = async () => {
+        const reservationDetails = {
             customerName,
-            time,
-            description,
-            tableNumber,
+            arrivalTime: time,
+            specialRequests: description,
             reservedAt: new Date().toISOString()
-        });
-        resetForm();
+        };
+
+        try {
+            await tableStore.getState().updateTableStatus(
+                tableNumber, 
+                'Reserved',
+                reservationDetails
+            );
+            resetForm();
+            onClose();
+        } catch (error) {
+            console.error('Failed to update reservation:', error);
+        }
     };
 
     return (
         <View className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <View className="bg-white p-6 rounded-lg w-[700px] h-[400px] shadow-xl items-center">
-                <Text className="text-xl font-bold mb-4">Table Reservation</Text>
+                <Text className="text-xl font-bold mb-4">Table {tableNumber} Reservation</Text>
                 <TextInput
                     className="border text-center border-gray-300 mt-4 p-2 rounded-lg mb-4 w-[600px] h-[50px]"
                     placeholder="Customer Name"
@@ -53,7 +64,7 @@ const ReservedModal = ({ visible, onClose, onConfirm, tableNumber }) => {
                     onChangeText={setCustomerName}
                 />
                 <View className="flex flex-row items-center self-start ml-6">
-                    <Text className="mr-2">Time:</Text>
+                    <Text className="mr-2">Expected Arrival Time:</Text>
                     <TouchableOpacity
                         onPress={handleTimePress}
                         className="border flex flex-row items-center justify-between border-gray-300 p-3 rounded-lg w-[200px] bg-gray-50 active:bg-gray-100"
@@ -70,10 +81,10 @@ const ReservedModal = ({ visible, onClose, onConfirm, tableNumber }) => {
                     </TouchableOpacity>
                 </View>
                 <View className="flex flex-col self-start ml-6 w-full pr-6">
-                    <Text className="text-lg mb-2">Description(Optional)</Text>
+                    <Text className="text-lg mb-2">Special Requests</Text>
                     <TextInput
                         className="border border-gray-300 p-2 rounded-lg mb-4 w-full h-[100px]"
-                        placeholder="Write a description or a request"
+                        placeholder="Enter any special requests or notes"
                         value={description}
                         onChangeText={setDescription}
                         multiline
@@ -97,13 +108,14 @@ const ReservedModal = ({ visible, onClose, onConfirm, tableNumber }) => {
                     <TouchableOpacity
                         className="px-4 py-2 bg-primary rounded-lg"
                         onPress={handleConfirmAndReset}
+                        disabled={!customerName || !time}
                     >
-                        <Text className="text-white">Confirm</Text>
+                        <Text className="text-white">Confirm Reservation</Text>
                     </TouchableOpacity>
                 </View>
             </View>
         </View>
-    )
-}
+    );
+};
 
-export default ReservedModal
+export default ReservedModal;

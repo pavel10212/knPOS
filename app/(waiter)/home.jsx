@@ -92,18 +92,7 @@ const Home = () => {
       <ReservedModal
         visible={reservationModal.visible}
         tableNumber={reservationModal.tableNumber}
-        onClose={() =>
-          setReservationModal({ visible: false, tableNumber: null })
-        }
-        onConfirm={(reservationDetails) => {
-          const { updateTableReservation } = tableStore.getState();
-          updateTableReservation(
-            reservationModal.tableNumber,
-            reservationDetails
-          );
-          setDropdownTable(null);
-          setReservationModal({ visible: false, tableNumber: null });
-        }}
+        onClose={() => setReservationModal({ visible: false, tableNumber: null })}
       />
 
       <QRModal
