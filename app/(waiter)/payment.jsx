@@ -15,6 +15,7 @@ import PaymentMethod from "../../components/PaymentMethod";
 import { router } from "expo-router";
 import { useSharedStore } from "../../hooks/useSharedStore";
 import DiscountButton from "../../components/DiscountButton";
+import { initializePrinter, printReceipt } from '../../utils/printerUtil';
 
 const Payment = () => {
   const orders = useSharedStore((state) => state.orders);
@@ -81,6 +82,13 @@ const Payment = () => {
   useEffect(() => {
     setOrderItems(transformedOrder || []);
   }, [transformedOrder]);
+
+  useEffect(() => {
+    initializePrinter().catch(err => {
+      console.error('Printer initialization failed:', err);
+      Alert.alert('Printer Error', 'Failed to initialize printer');
+    });
+  }, []);
 
   const calculations = useMemo(() => {
     const subtotal =
@@ -201,6 +209,31 @@ const Payment = () => {
     orderItems,
     selectedTable,
   ]);
+
+  const handlePrintReceipt = async () => {
+    try {
+      const orderDetails = {
+        tableNumber: selectedTable.table_num,
+        items: orderItems
+      };
+
+      const paymentDetails = {
+        subtotal,
+        discount,
+        discountAmount,
+        vat,
+        total,
+        method: selectedMethod,
+        cashReceived,
+        tipAmount
+      };
+
+      await printReceipt(orderDetails, paymentDetails);
+    } catch (error) {
+      console.error('Failed to print receipt:', error);
+      Alert.alert('Print Error', 'Failed to print receipt');
+    }
+  };
 
   if (!selectedTable) {
     return (
@@ -449,9 +482,7 @@ const Payment = () => {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => {
-                  /* TODO: Implement print receipt functionality */
-                }}
+                onPress={handlePrintReceipt}
                 className="flex-1 bg-[#64D393] p-4 rounded-lg"
               >
                 <Text className="text-white text-center font-bold text-lg">

@@ -1,88 +1,122 @@
-import {useEffect, useState} from "react";
-import {ActivityIndicator, Modal, Text, TouchableOpacity, View} from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Modal, Text, TouchableOpacity, View, PermissionsAndroid } from "react-native";
 import QRCode from 'react-native-qrcode-svg';
-import {tableStore} from "../hooks/useStore";
+import { tableStore } from "../hooks/useStore";
+import { initializePrinter, printQRCode } from '../utils/printerUtil';
 
 const API_BASE = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
-const QRModal = ({visible, onClose, table_num}) => {
+const QRModal = ({ visible, onClose, table_num }) => {
     const [qrValue, setQrValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const updateTableStatus = tableStore((state) => state.updateTableStatus)
+    // Use useRef instead of state for the QRCode ref
+    const qrRef = useRef(null);
+    const updateTableStatus = tableStore((state) => state.updateTableStatus);
+
+    useEffect(() => {
+        initializePrinter().catch(err => {
+            console.error('Printer initialization failed:', err);
+            setError('Failed to initialize printer');
+        });
+    }, []);
+
+    // Get a clean base64 string from the QR code reference
+    const getQRBase64 = () => {
+        return new Promise((resolve, reject) => {
+            if (!qrValue || !qrRef.current) {
+                reject(new Error('QR code not generated yet'));
+                return;
+            }
+            try {
+                qrRef.current.toDataURL((dataURL) => {
+                    if (!dataURL) {
+                        reject(new Error('No data received from QR code'));
+                        return;
+                    }
+                    // Remove the header and any whitespace/newlines
+                    const cleanBase64 = dataURL.substring(dataURL.indexOf(',') + 1).trim();
+                    if (!cleanBase64) {
+                        reject(new Error('Invalid QR code data'));
+                        return;
+                    }
+                    resolve(cleanBase64);
+                });
+            } catch (err) {
+                console.error('QR generation error:', err);
+                reject(new Error('Failed to generate QR code image'));
+            }
+        });
+    };
+
+    const handlePrint = async () => {
+        if (!qrValue) {
+            setError('QR code not generated yet');
+            return;
+        }
+        try {
+            const base64Data = await getQRBase64();
+            await printQRCode(base64Data, table_num);
+        } catch (error) {
+            console.error('Printing failed:', error);
+            setError(`Failed to print: ${error.message}`);
+        }
+    };
 
     useEffect(() => {
         if (!visible || !table_num) return;
-
         const generateQRAndUpdateTable = async () => {
             setIsLoading(true);
             setError(null);
-
             try {
-                console.log(`📡 Generating QR code for table ${table_num}...`);
                 const tokenResponse = await fetch(`${API_BASE}/generate-token`, {
                     method: "PUT",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({table_num}),
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ table_num }),
                 });
-                console.log("Has attempted to fetch")
-
-                if (!tokenResponse.ok) {
-                    console.error('❌ Failed to generate QR code');
-                    throw new Error('Failed to generate QR code');
-                }
-
-                const {url} = await tokenResponse.json();
-                console.log('✅ QR code generated successfully');
+                if (!tokenResponse.ok) throw new Error('Failed to generate QR code');
+                const { url } = await tokenResponse.json();
                 if (!url) throw new Error('Invalid QR code data');
-
                 setQrValue(url);
-                console.log(`The link is for qr: ${qrValue}`)
-
-                // Update table status using store function
-                const success = await updateTableStatus(table_num, "Unavailable");
-                if (!success) throw new Error('Failed to update table status');
-
+                await updateTableStatus(table_num, "Unavailable");
             } catch (error) {
-                console.error('❌ Operation failed:', error);
+                console.error('Operation failed:', error);
                 setError('Failed to generate QR code. Please try again.');
             } finally {
                 setIsLoading(false);
             }
         };
-
         generateQRAndUpdateTable();
     }, [visible, table_num]);
 
     return (
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={visible}
-            onRequestClose={onClose}
-        >
-            <View className="flex-1 justify-center items-center bg-black/50">
-                <View className="bg-white p-6 rounded-xl w-[80%] items-center">
-                    <Text className="text-lg font-semibold mb-4">
-                        Scan this QR code to view the menu
-                    </Text>
-
-                    <View className="bg-white p-4 rounded-lg">
+        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: '80%', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 18, marginBottom: 16 }}>Scan this QR code to view the menu</Text>
+                    <View style={{ padding: 10, backgroundColor: 'white', borderRadius: 8 }}>
                         {isLoading ? (
-                            <ActivityIndicator size="large" color="#0000ff"/>
+                            <ActivityIndicator size="large" color="#0000ff" />
                         ) : error ? (
-                            <Text className="text-red-500">{error}</Text>
+                            <Text style={{ color: 'red' }}>{error}</Text>
                         ) : (
-                            <QRCode value={qrValue || 'Error'} size={200}/>
+                            <QRCode
+                                value={qrValue || 'Error'}
+                                size={200}
+                                getRef={(c) => { qrRef.current = c; }}
+                                ecl="M"
+                                quietZone={10}
+                            />
                         )}
                     </View>
-
-                    <TouchableOpacity
-                        className="mt-4 bg-primary px-6 py-2 rounded-lg"
-                        onPress={onClose}
-                    >
-                        <Text className="text-white font-semibold">Close</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', marginTop: 16 }}>
+                        <TouchableOpacity style={{ backgroundColor: 'blue', padding: 10, borderRadius: 8, marginRight: 10 }} onPress={handlePrint}>
+                            <Text style={{ color: 'white', fontWeight: 'bold' }}>Print</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={{ backgroundColor: 'green', padding: 10, borderRadius: 8 }} onPress={onClose}>
+                            <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </Modal>
