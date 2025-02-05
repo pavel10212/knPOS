@@ -24,7 +24,11 @@ export const tableStore = create((set, get) => ({
   updateSelectedTable: (table) => set({ selectedTable: table }),
 
   // Table Status
-  updateTableStatus: async (table_num, newStatus, reservationDetails = null) => {
+  updateTableStatus: async (
+    table_num,
+    newStatus,
+    reservationDetails = null
+  ) => {
     try {
       console.log(
         `📡 Sending PUT request to /table-update for table ${table_num} with status ${newStatus}`
@@ -67,9 +71,9 @@ export const tableStore = create((set, get) => ({
               }
             : table
         );
-        
+
         useSharedStore.getState().setTables(updatedTables);
-        
+
         return {
           selectedTable:
             state.selectedTable?.table_num === table_num
@@ -116,17 +120,10 @@ export const tableStore = create((set, get) => ({
 
   // Data Management
   fetchTables: async () => {
-    // const cachedTables = localStore.getString("tables");
     const setTables = useSharedStore.getState().setTables;
 
-    // if (cachedTables) {
-    //   console.log("✅ Using cached tables data");
-    //   setTables(JSON.parse(cachedTables));
-    //   return;
-    // }
-
     try {
-      console.log("Found no cache, fetching from server instead...");
+      console.log("Fetching tables from server...");
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
       );
@@ -147,16 +144,9 @@ export const tableStore = create((set, get) => ({
       }));
 
       setTables(processedData);
-      // localStore.set("tables", JSON.stringify(processedData));
     } catch (error) {
       console.error("❌ Error fetching tables:", error);
-      if (cachedTables) {
-        console.log("ℹ️ Using fallback cached tables data");
-        set({ tables: JSON.parse(cachedTables) });
-      } else {
-        console.error("❌ No cached data available");
-        set({ tables: [] });
-      }
+      set({ tables: [] });
     }
   },
 }));

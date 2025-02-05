@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useInventoryStore } from "../../hooks/useInventoryData";
 import { useSharedStore } from "../../hooks/useSharedStore";
 import { useSocketStore } from "../../hooks/useSocket";
-import { localStore } from "../../hooks/Storage/cache";
 import MenuOrderItem from "../../components/menuOrderItem";
 import InventoryItem from "../../components/InventoryItem";
 
@@ -217,16 +216,13 @@ const EditOrAddOrder = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Update state
-      const cachedOrders = JSON.parse(localStore.getString("orders") || "[]");
       const updatedOrders = isEditMode
-        ? cachedOrders.map(o => o.order_id === savedOrder.order_id ? savedOrder : o)
-        : [...cachedOrders, savedOrder];
+        ? orders.map(o => o.order_id === savedOrder.order_id ? savedOrder : o)
+        : [...orders, savedOrder];
 
-      localStore.set("orders", JSON.stringify(updatedOrders));
       setOrders(updatedOrders);
 
       useInventoryStore.getState().fetchInventory();
-
 
       setTemporaryOrder([]);
       router.push("home");

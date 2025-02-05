@@ -2,7 +2,6 @@ import { create } from "zustand";
 import io from "socket.io-client";
 import Toast from "react-native-toast-message";
 import { useSharedStore } from "./useSharedStore";
-import { localStore } from "./Storage/cache";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
@@ -62,7 +61,6 @@ export const useSocketStore = create((set, get) => ({
         order.order_id === data.order_id ? updatedOrder : order
       );
 
-      localStore.set("orders", JSON.stringify(updatedOrders));
       useSharedStore.getState().setOrders(updatedOrders);
 
       Toast.show({
@@ -122,7 +120,6 @@ export const useSocketStore = create((set, get) => ({
 
       // Update state and storage
       const updatedOrders = [...currentOrders, processedOrder];
-      localStore.set("orders", JSON.stringify(updatedOrders));
       useSharedStore.getState().setOrders(updatedOrders);
 
       Toast.show({

@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { useSharedStore } from "./useSharedStore";
-import { localStore } from "./Storage/cache";
 
 export const useOrderStore = create((set, get) => ({
   // State
@@ -51,7 +50,6 @@ export const useOrderStore = create((set, get) => ({
       );
 
       useSharedStore.getState().setOrders(updatedOrders);
-      localStore.set("orders", JSON.stringify(updatedOrders));
 
       return true;
     } catch (error) {
@@ -62,20 +60,6 @@ export const useOrderStore = create((set, get) => ({
 
   fetchOrders: async () => {
     const setOrders = useSharedStore.getState().setOrders;
-
-    // try {
-    //   const cachedMenu = localStore.getString("orders");
-    //   if (cachedMenu) {
-    //     console.log("✅ Using cached orders data");
-    //     const parsedOrders = JSON.parse(cachedMenu);
-    //     setOrders(parsedOrders);
-    //     return parsedOrders;
-    //   }
-    //   console.log("⏳ No cached orders found, fetching from server...");
-    // } catch (error) {
-    //   console.error("❌ Error accessing orders cache:", error);
-    //   set({ error: "Error accessing orders cache" });
-    // }
 
     try {
       const response = await fetch(

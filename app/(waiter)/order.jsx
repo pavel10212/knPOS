@@ -19,8 +19,8 @@ const Order = () => {
     const handleOrderDelivery = async (orderId) => {
         const foundOrder = orders.find(o => o.order_id === orderId);
         try {
-            const orderDetails = typeof foundOrder.order_details === 'string' 
-                ? JSON.parse(foundOrder.order_details) 
+            const orderDetails = typeof foundOrder.order_details === 'string'
+                ? JSON.parse(foundOrder.order_details)
                 : foundOrder.order_details;
 
             const updatedOrderDetails = orderDetails.map(item => ({
@@ -61,7 +61,7 @@ const Order = () => {
             : [...order.order_details];
 
         const updatedOrderDetails = orderDetails.map(detail => {
-            const isMatch = item.type === 'inventory' 
+            const isMatch = item.type === 'inventory'
                 ? detail.inventory_item_id === item.originalInventoryItemId
                 : detail.menu_item_id === item.originalMenuItemId;
 
@@ -103,32 +103,41 @@ const Order = () => {
     const tableList = tables.map((table) => ({
         id: table.table_id,
         name: `Table ${table.table_num}`,
-        orders: findAllOrdersForTable(table.table_num, orders).map((order) => ({
-            id: order.order_id,
-            status: order.order_status,
-            items: (typeof order.order_details === 'string' 
-                ? JSON.parse(order.order_details) 
-                : order.order_details).map((item) => {
-                if (item.type === 'inventory') {
-                    const inventoryItem = inventory.find(inv => inv.inventory_item_id === item.inventory_item_id);
-                    return {
-                        name: inventoryItem?.inventory_item_name || "Unknown Item",
-                        type: 'inventory',
-                        originalInventoryItemId: item.inventory_item_id,
-                        quantity: item.quantity,
-                        status: item.status
-                    };
-                }
-                const menuItem = menu.find(menuItem => menuItem.menu_item_id === item.menu_item_id);
-                return {
-                    name: menuItem?.menu_item_name || "Unknown Item",
-                    type: 'menu',
-                    originalMenuItemId: item.menu_item_id,
-                    quantity: item.quantity,
-                    status: item.status
-                };
+        orders: findAllOrdersForTable(table.table_num, orders)
+            .filter(order => {
+                const orderDate = new Date(order.order_date_time);
+                const now = new Date();
+                return orderDate.getFullYear() === now.getFullYear() &&
+                    orderDate.getMonth() === now.getMonth() &&
+                    orderDate.getDate() === now.getDate();
             })
-        }))
+            .map((order) => ({
+                id: order.order_id,
+                status: order.order_status,
+                order_date_time: order.order_date_time,
+                items: (typeof order.order_details === 'string'
+                    ? JSON.parse(order.order_details)
+                    : order.order_details).map((item) => {
+                        if (item.type === 'inventory') {
+                            const inventoryItem = inventory.find(inv => inv.inventory_item_id === item.inventory_item_id);
+                            return {
+                                name: inventoryItem?.inventory_item_name || "Unknown Item",
+                                type: 'inventory',
+                                originalInventoryItemId: item.inventory_item_id,
+                                quantity: item.quantity,
+                                status: item.status
+                            };
+                        }
+                        const menuItem = menu.find(menuItem => menuItem.menu_item_id === item.menu_item_id);
+                        return {
+                            name: menuItem?.menu_item_name || "Unknown Item",
+                            type: 'menu',
+                            originalMenuItemId: item.menu_item_id,
+                            quantity: item.quantity,
+                            status: item.status
+                        };
+                    })
+            }))
     }));
 
     return (
