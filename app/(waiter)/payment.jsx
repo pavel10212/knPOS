@@ -107,28 +107,6 @@ const Payment = () => {
   const { subtotal, serviceCharge, discountAmount, vat, total } =
     calculations;
 
-  // Optimize item manipulation callbacks
-  const deleteItem = useCallback((item) => {
-    setOrderItems((prev) => prev.filter((i) => i.id !== item.id));
-  }, []);
-
-  const addItem = useCallback((item) => {
-    setOrderItems((prev) =>
-      prev.map((i) =>
-        i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-      )
-    );
-  }, []);
-
-  const subtractItem = useCallback((item) => {
-    if (item.quantity <= 1) return;
-    setOrderItems((prev) =>
-      prev.map((i) =>
-        i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
-      )
-    );
-  }, []);
-
   // Optimize finish payment callback
   const finishPayment = useCallback(async () => {
     if (!selectedMethod) {
@@ -243,21 +221,15 @@ const Payment = () => {
           </View>
           <View className="flex-1 m-5 rounded-lg">
             <View className="flex flex-row justify-between rounded-t-lg p-4 bg-[#EAF0F0]">
-              <Text className="font-semibold w-[30%]">Item</Text>
-              <Text className="font-semibold w-[15%] text-center">Price</Text>
-              <Text className="font-semibold w-[25%] text-center">
-                Quantity
-              </Text>
-              <Text className="font-semibold w-[15%] text-right">Subtotal</Text>
-              <Text className="font-semibold w-[15%] text-center">Actions</Text>
+              <Text className="font-semibold w-[40%]">Item</Text>
+              <Text className="font-semibold w-[20%] text-center">Price</Text>
+              <Text className="font-semibold w-[20%] text-center">Quantity</Text>
+              <Text className="font-semibold w-[20%] text-right">Subtotal</Text>
             </View>
             <FlatList
               data={orderItems}
               renderItem={({ item, index }) => (
                 <PayItem
-                  addItem={addItem}
-                  subtractItem={subtractItem}
-                  deleteItem={deleteItem}
                   item={item}
                 />
               )}
