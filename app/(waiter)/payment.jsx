@@ -1,11 +1,4 @@
-import {
-  Alert,
-  FlatList,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, FlatList, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { tableStore } from "../../hooks/useStore";
 import { useMemo, useState, useCallback, useEffect } from "react";
 import icons from "../../constants/icons";
@@ -16,6 +9,7 @@ import { router } from "expo-router";
 import { useSharedStore } from "../../hooks/useSharedStore";
 import DiscountButton from "../../components/DiscountButton";
 import { initializePrinter, printReceipt } from '../../utils/printerUtil';
+import { updateOrderWithPayment } from '../../services/orderService';
 
 const Payment = () => {
   const orders = useSharedStore((state) => state.orders);
@@ -168,25 +162,10 @@ const Payment = () => {
             })
           );
 
-          const response = await fetch(
-            `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                order_id: order.order_id,
-                total_amount: calculations.total,
-                tip_amount: tipAmount,
-                order_status: "Completed",
-                completion_date_time: new Date().toISOString(),
-                order_details: updatedOrderDetails,
-              }),
-            }
-          );
-
-          if (!response.ok) throw new Error("Failed to update order");
-
-          return response.json();
+          return await updateOrderWithPayment(order.order_id, updatedOrderDetails, {
+            total: calculations.total,
+            tipAmount
+          });
         })
       );
 

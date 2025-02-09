@@ -39,15 +39,7 @@ const OrderItem = ({ order }) => {
           );
         }
 
-        if (!itemDetails) {
-          return {
-            id: item.menu_item_id || item.inventory_item_id || 'unknown',
-            name: 'Unknown Item',
-            quantity: item.quantity || 0,
-            price: 0,
-            request: item.request || '',
-          };
-        }
+        if (!itemDetails) return null;
 
         return {
           id: isInventory ? itemDetails.inventory_item_id : itemDetails.menu_item_id,

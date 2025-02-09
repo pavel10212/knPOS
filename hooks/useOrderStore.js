@@ -63,7 +63,7 @@ export const useOrderStore = create((set, get) => ({
 
     try {
       const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-get`
+        `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-for-today`
       );
 
       if (!response.ok) throw new Error("Failed to fetch orders");

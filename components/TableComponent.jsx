@@ -1,10 +1,11 @@
-import { Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
+import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal } from 'react-native'
 import React, { useState } from 'react'
+import { useSharedStore } from '../hooks/useSharedStore';
 import { tableStore } from '../hooks/useStore';
+import { updateOrderStatus } from '../services/orderService';
 
 const TableComponent = ({
     table_num,
-    orders,
     capacity,
     status,
     reservation_details,
@@ -20,9 +21,14 @@ const TableComponent = ({
     const dropdownTableNumber = tableStore((state) => state.dropdownTableNumber)
     const setDropdownTable = tableStore((state) => state.setDropdownTable)
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
+    const orders = useSharedStore((state) => state.orders);
+    const setOrders = useSharedStore((state) => state.setOrders);
 
     const isDropdownOpen = dropdownTableNumber === table_num;
     const [isReservationVisible, setIsReservationVisible] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+    const ordersForTable = orders.filter((order) => order.table_num === table_num);
 
     const ifLongPressed = () => {
         setIsReservationVisible(false);
@@ -36,8 +42,45 @@ const TableComponent = ({
             return;
         }
         try {
+            if (newStatus === 'available' && ordersForTable.length > 0) {
+                setShowConfirmModal(true);
+                return;
+            }
             const success = await updateTableStatus(table_num, newStatus);
             if (!success) throw new Error('Failed to update table status');
+            setDropdownTable(null);
+        } catch (error) {
+            console.error('Error updating table status:', error);
+        }
+    };
+
+    const confirmStatusChange = async () => {
+        try {
+            // First, mark all orders for this table as completed
+            const updatedOrders = await Promise.all(
+                ordersForTable.map(async (order) => {
+                    const updatedOrderDetails = JSON.stringify(
+                        order.order_details.map((detail) => ({
+                            ...detail,
+                            status: "completed"
+                        }))
+                    );
+
+                    return await updateOrderStatus(order, updatedOrderDetails);
+                })
+            );
+
+            // Update orders in the store
+            setOrders([
+                ...orders.filter((order) => !ordersForTable.includes(order)),
+                ...updatedOrders,
+            ]);
+
+            // Then update table status
+            const success = await updateTableStatus(table_num, 'Available');
+            if (!success) throw new Error('Failed to update table status');
+
+            setShowConfirmModal(false);
             setDropdownTable(null);
         } catch (error) {
             console.error('Error updating table status:', error);
@@ -70,14 +113,14 @@ const TableComponent = ({
 
     const getDropdownPosition = () => {
         const base = getBasePosition();
-        
+
         if (rotation === 90 || rotation === -270) {
             return {
                 left: base.left - (capacity === 6 ? 20 : 0),
                 top: base.top + (capacity === 6 ? 150 : 120)
             };
         }
-        
+
         return {
             left: base.left,
             top: base.top + 120
@@ -154,7 +197,7 @@ const TableComponent = ({
                         right: 0,
                         bottom: 0,
                         zIndex: 998
-                    }}/>
+                    }} />
                 </TouchableWithoutFeedback>
             )}
 
@@ -209,6 +252,45 @@ const TableComponent = ({
                     )}
                 </View>
             )}
+
+            {/* Confirmation Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={showConfirmModal}
+                onRequestClose={() => setShowConfirmModal(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowConfirmModal(false)}>
+                    <View className="flex-1 justify-center items-center bg-black/50">
+                        <TouchableWithoutFeedback>
+                            <View className="bg-white p-8 rounded-xl w-[450px] shadow-xl">
+                                <Text className="text-xl font-bold mb-4 text-gray-800">Complete Orders & Change Status</Text>
+                                <Text className="mb-4 text-gray-600 text-base">
+                                    This table has {ordersForTable.length} active order{ordersForTable.length > 1 ? 's' : ''}.
+                                </Text>
+                                <Text className="mb-8 text-gray-600 text-base">
+                                    Would you like to mark {ordersForTable.length > 1 ? 'all orders' : 'the order'} as completed
+                                    and change the table status to available?
+                                </Text>
+                                <View className="flex-row justify-end space-x-6">
+                                    <TouchableOpacity
+                                        onPress={() => { setShowConfirmModal(false); setDropdownTable(false); }}
+                                        className="px-6 py-3 rounded-lg bg-gray-100 border border-gray-200"
+                                    >
+                                        <Text className="text-gray-600 font-medium">Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={confirmStatusChange}
+                                        className="px-6 py-3 rounded-lg bg-blue-500 shadow-sm"
+                                    >
+                                        <Text className="text-white font-medium">Complete & Mark Available</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     )
 }
