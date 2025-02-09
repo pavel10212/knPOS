@@ -1,4 +1,4 @@
-import { ScrollView, View, Alert } from 'react-native';
+import { View, Alert, FlatList } from 'react-native';
 import TableOrders from '../../components/TableOrders';
 import { useSharedStore } from "../../hooks/useSharedStore";
 import { findAllOrdersForTable } from "../../utils/orderUtils";
@@ -100,60 +100,70 @@ const Order = () => {
         }
     };
 
-    const tableList = tables.map((table) => ({
-        id: table.table_id,
-        name: `Table ${table.table_num}`,
-        orders: findAllOrdersForTable(table.table_num, orders)
-            .filter(order => {
-                const orderDate = new Date(order.order_date_time);
-                const now = new Date();
-                return orderDate.getFullYear() === now.getFullYear() &&
-                    orderDate.getMonth() === now.getMonth() &&
-                    orderDate.getDate() === now.getDate();
-            })
-            .map((order) => ({
-                id: order.order_id,
-                status: order.order_status,
-                order_date_time: order.order_date_time,
-                items: (typeof order.order_details === 'string'
-                    ? JSON.parse(order.order_details)
-                    : order.order_details).map((item) => {
-                        if (item.type === 'inventory') {
-                            const inventoryItem = inventory.find(inv => inv.inventory_item_id === item.inventory_item_id);
+    const tableList = tables
+        .map((table) => {
+            const tableOrders = findAllOrdersForTable(table.table_num, orders)
+                .filter(order => {
+                    const orderDate = new Date(order.order_date_time);
+                    const now = new Date();
+                    return orderDate.getFullYear() === now.getFullYear() &&
+                        orderDate.getMonth() === now.getMonth() &&
+                        orderDate.getDate() === now.getDate();
+                });
+
+            return {
+                id: table.table_id,
+                name: `Table ${table.table_num}`,
+                tableNum: table.table_num, // Add this for sorting
+                orders: tableOrders.map((order) => ({
+                    id: order.order_id,
+                    status: order.order_status,
+                    order_date_time: order.order_date_time,
+                    items: (typeof order.order_details === 'string'
+                        ? JSON.parse(order.order_details)
+                        : order.order_details).map((item) => {
+                            if (item.type === 'inventory') {
+                                const inventoryItem = inventory.find(inv => inv.inventory_item_id === item.inventory_item_id);
+                                return {
+                                    name: inventoryItem?.inventory_item_name || "Unknown Item",
+                                    type: 'inventory',
+                                    originalInventoryItemId: item.inventory_item_id,
+                                    quantity: item.quantity,
+                                    status: item.status
+                                };
+                            }
+                            const menuItem = menu.find(menuItem => menuItem.menu_item_id === item.menu_item_id);
                             return {
-                                name: inventoryItem?.inventory_item_name || "Unknown Item",
-                                type: 'inventory',
-                                originalInventoryItemId: item.inventory_item_id,
+                                name: menuItem?.menu_item_name || "Unknown Item",
+                                type: 'menu',
+                                originalMenuItemId: item.menu_item_id,
                                 quantity: item.quantity,
                                 status: item.status
                             };
-                        }
-                        const menuItem = menu.find(menuItem => menuItem.menu_item_id === item.menu_item_id);
-                        return {
-                            name: menuItem?.menu_item_name || "Unknown Item",
-                            type: 'menu',
-                            originalMenuItemId: item.menu_item_id,
-                            quantity: item.quantity,
-                            status: item.status
-                        };
-                    })
-            }))
-    }));
+                        })
+                }))
+            };
+        })
+        .sort((a, b) => a.tableNum - b.tableNum); // Sort by table number
 
     return (
         <View className="flex-1 bg-[#F3F4F6]">
-            <ScrollView>
-                <View className="p-4 flex-row flex-wrap">
-                    {tableList.map(table => (
-                        <TableOrders
-                            key={table.id}
-                            table={table}
-                            onItemStatusChange={handleItemStatusChange}
-                            onOrderDelivery={handleOrderDelivery}
-                        />
-                    ))}
-                </View>
-            </ScrollView>
+            <FlatList
+                horizontal
+                data={tableList}
+                keyExtractor={table => table.id.toString()}
+                renderItem={({ item: table }) => (
+                    <TableOrders
+                        table={table}
+                        onItemStatusChange={handleItemStatusChange}
+                        onOrderDelivery={handleOrderDelivery}
+                    />
+                )}
+                showsHorizontalScrollIndicator={false}
+                snapToAlignment="start"
+                decelerationRate="fast"
+                snapToInterval={300} // Adjust based on your TableOrders width
+            />
         </View>
     );
 };
