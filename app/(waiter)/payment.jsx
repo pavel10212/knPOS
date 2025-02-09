@@ -20,13 +20,11 @@ const Payment = () => {
   const inventory = useSharedStore((state) => state.inventory);
 
   const [selectedMethod, setSelectedMethod] = useState(null);
-  const [tipAmount, setTipAmount] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [cashReceived, setCashReceived] = useState(0);
 
   const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20, 50];
-  const CASH_AMOUNTS = [100, 200, 300, 500, 1000];
-  const TIP_AMOUNTS = [20, 40, 50, 100, 150];
+  const CASH_AMOUNTS = [100, 200, 300, 500];
 
   const parsedOrder = useMemo(
     () => findOrdersForTable(selectedTable?.table_num, orders),
@@ -93,19 +91,22 @@ const Payment = () => {
     const vat = subtotal * 0.1;
     const total = subtotal - discountAmount + vat;
 
+    // Calculate tips only for cash payments when cash received is more than total
+    const calculatedTip = selectedMethod === "cash" && cashReceived > total
+      ? cashReceived - total
+      : 0;
+
     return {
       subtotal,
-      tipAmount,
       serviceCharge: 0,
       discountAmount,
       vat,
       total,
+      tipAmount: calculatedTip,
     };
-  }, [orderItems, discount, transformedOrder]);
+  }, [orderItems, discount, cashReceived, selectedMethod]);
 
-  // Destructure values from calculations for use in render
-  const { subtotal, serviceCharge, discountAmount, vat, total } =
-    calculations;
+  const { subtotal, serviceCharge, discountAmount, vat, total, tipAmount } = calculations;
 
   // Optimize finish payment callback
   const finishPayment = useCallback(async () => {
@@ -301,6 +302,17 @@ const Payment = () => {
                       />
                     </View>
                     <View className="flex flex-row flex-wrap gap-2 pt-4 justify-center">
+                      <TouchableOpacity
+                        key="exact"
+                        onPress={() => setCashReceived(total.toFixed(2))}
+                        className={`px-4 py-2 rounded-lg ${cashReceived === total.toFixed(2) ? "bg-primary" : "bg-white"}`}
+                      >
+                        <Text
+                          className={`font-medium ${cashReceived === total.toFixed(2) ? "text-white" : "text-gray-700"}`}
+                        >
+                          Exact
+                        </Text>
+                      </TouchableOpacity>
                       {CASH_AMOUNTS.map((amount) => (
                         <TouchableOpacity
                           key={amount}
@@ -369,50 +381,12 @@ const Payment = () => {
                   </View>
                 )}
 
-                {/* Tips Section - New design */}
-                <View className="border-t border-dashed mt-4">
-                  <View className="w-full bg-[#EAF0F0] p-4 rounded-lg space-y-6 mt-4">
-                    <View className="flex flex-row items-center justify-between">
-                      <Text className="font-medium">Tips Amount</Text>
-                      <TextInput
-                        className="border-b bg-white px-4 py-2 rounded-lg w-[120px] text-center"
-                        placeholder="$0.00"
-                        value={tipAmount.toString()}
-                        onChangeText={(text) =>
-                          setTipAmount(parseFloat(text) || 0)
-                        }
-                        keyboardType="numeric"
-                      />
-                    </View>
-                    <View className="flex flex-row flex-wrap gap-2 pt-4 justify-center">
-                      {TIP_AMOUNTS.map((amount) => (
-                        <TouchableOpacity
-                          key={amount}
-                          onPress={() => setTipAmount(amount)}
-                          className={`px-4 py-2 rounded-lg ${tipAmount === amount ? "bg-primary" : "bg-white"
-                            }`}
-                        >
-                          <Text
-                            className={`font-medium ${tipAmount === amount
-                              ? "text-white"
-                              : "text-gray-700"
-                              }`}
-                          >
-                            ${amount}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-
-                {tipAmount > 0 && (
+                {selectedMethod === "cash" && cashReceived > total && (
                   <View className="mt-2">
-                    <View className="flex flex-row justify-between"></View>
-                    <View className="flex flex-row justify-between">
-                      <Text className="font-bold">Tip Amount</Text>
+                    <View className="flex flex-row justify-between pt-1 border-t border-dashed">
+                      <Text className="font-bold text-green-500">Tips</Text>
                       <Text className="font-bold text-green-500">
-                        ${tipAmount.toFixed(2)}
+                        ${(cashReceived - total).toFixed(2)}
                       </Text>
                     </View>
                   </View>

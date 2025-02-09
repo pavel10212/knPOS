@@ -1,5 +1,5 @@
 import { PermissionsAndroid } from "react-native";
-import { Image } from 'react-native';
+import { Image } from "react-native";
 import {
   COMMANDS,
   BLEPrinter,
@@ -87,23 +87,15 @@ const printReceipt = async (orderDetails, paymentDetails) => {
     `${BOLD_ON}Total: $${paymentDetails.total.toFixed(2)}${BOLD_OFF}\n\n`
   );
 
-  if (paymentDetails.tipAmount > 0) {
-    BLEPrinter.printText(
-      `Tip Amount: $${paymentDetails.tipAmount.toFixed(2)}\n\n`
-    );
-  }
-
   // Handle different payment methods
-  if (paymentDetails.method === "qr") {
-    BLEPrinter.printText(`${CENTER}${BOLD_ON}Scan QR to Pay${BOLD_OFF}\n\n`);
-    // Print QR code image
-    const qrImagePath = require("../assets/images/qrCode.jpg")
-    const qrBase64 = await convertImageToBase64(qrImagePath);
-    BLEPrinter.printImageBase64(qrBase64, {
-        imageWidth: 400,
-        imageHeight: 400,
-    });
-  }
+  BLEPrinter.printText(`${CENTER}${BOLD_ON}Scan QR to Pay${BOLD_OFF}\n\n`);
+  // Print QR code image
+  const qrImagePath = require("../assets/images/qrCode.jpg");
+  const qrBase64 = await convertImageToBase64(qrImagePath);
+  BLEPrinter.printImageBase64(qrBase64, {
+    imageWidth: 400,
+    imageHeight: 400,
+  });
 
   // Print footer
   BLEPrinter.printText(`\n${CENTER}Thank you for your visit!\n`);
@@ -114,26 +106,26 @@ const convertImageToBase64 = (imagePath) => {
   return new Promise((resolve, reject) => {
     const image = Image.resolveAssetSource(imagePath);
     if (!image) {
-      reject(new Error('Could not resolve image asset'));
+      reject(new Error("Could not resolve image asset"));
       return;
     }
-    
+
     // For local assets, the uri property contains the path
     const imageUri = image.uri;
-    
+
     const xhr = new XMLHttpRequest();
-    xhr.onload = function() {
+    xhr.onload = function () {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64data = reader.result.split(',')[1];
+        const base64data = reader.result.split(",")[1];
         resolve(base64data);
       };
       reader.onerror = reject;
       reader.readAsDataURL(xhr.response);
     };
     xhr.onerror = reject;
-    xhr.open('GET', imageUri);
-    xhr.responseType = 'blob';
+    xhr.open("GET", imageUri);
+    xhr.responseType = "blob";
     xhr.send();
   });
 };
