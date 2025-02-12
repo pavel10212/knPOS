@@ -1,9 +1,13 @@
 import { View, Alert, FlatList } from 'react-native';
 import TableOrders from '../../components/TableOrders';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import { useSharedStore } from "../../hooks/useSharedStore";
 import { findAllOrdersForTable } from "../../utils/orderUtils";
+import { updateOrderDelivery, updateOrderItemStatus } from '../../services/orderService';
+import { useState } from 'react';
 
 const Order = () => {
+    const [confirmModal, setConfirmModal] = useState({ visible: false, orderId: null });
     const menu = useSharedStore((state) => state.menu);
     const tables = useSharedStore((state) => state.tables);
     const orders = useSharedStore((state) => state.orders) || [];
@@ -18,6 +22,28 @@ const Order = () => {
 
     const handleOrderDelivery = async (orderId) => {
         const foundOrder = orders.find(o => o.order_id === orderId);
+        const orderDetails = typeof foundOrder.order_details === 'string'
+            ? JSON.parse(foundOrder.order_details)
+            : foundOrder.order_details;
+
+        // Check if all items are completed
+        const allItemsCompleted = orderDetails.every(item => item.status === 'Completed');
+        
+        if (!allItemsCompleted) {
+            Alert.alert(
+                'Cannot Mark as Ready',
+                'All items must be completed before marking the order as ready.'
+            );
+            return;
+        }
+
+        setConfirmModal({ visible: true, orderId });
+    };
+
+    const confirmOrderDelivery = async () => {
+        const orderId = confirmModal.orderId;
+        const foundOrder = orders.find(o => o.order_id === orderId);
+        
         try {
             const orderDetails = typeof foundOrder.order_details === 'string'
                 ? JSON.parse(foundOrder.order_details)
@@ -28,26 +54,13 @@ const Order = () => {
                 status: 'Completed'
             }));
 
-            const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    order_id: orderId,
-                    total_amount: foundOrder.total_amount,
-                    order_date_time: foundOrder.order_date_time,
-                    order_status: 'Completed',
-                    order_details: JSON.stringify(updatedOrderDetails),
-                    completion_date_time: new Date().toISOString()
-                }),
-            });
-
-            if (!response.ok) throw new Error('Delivery failed');
-            const updatedOrder = await response.json();
+            const updatedOrder = await updateOrderDelivery(foundOrder, updatedOrderDetails);
             updateOrderInStore(orderId, updatedOrder);
-
         } catch (error) {
             console.error('Delivery error:', error);
-            Alert.alert('Error', 'Failed to mark order as delivered');
+            Alert.alert('Error', 'Failed to mark order as ready');
+        } finally {
+            setConfirmModal({ visible: false, orderId: null });
         }
     };
 
@@ -78,22 +91,8 @@ const Order = () => {
         const newOrderStatus = allMenuReady && allDrinksCompleted ? 'Ready' : 'In Progress';
 
         try {
-            const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    order_id: orderId,
-                    order_details: JSON.stringify(updatedOrderDetails),
-                    order_status: newOrderStatus,
-                    total_amount: order.total_amount,
-                    order_date_time: order.order_date_time,
-                }),
-            });
-
-            if (!response.ok) throw new Error('Failed to update order');
-            const updatedOrder = await response.json();
+            const updatedOrder = await updateOrderItemStatus(order, updatedOrderDetails, newOrderStatus);
             updateOrderInStore(orderId, updatedOrder);
-
         } catch (error) {
             console.error('Error updating item status:', error);
             Alert.alert('Error', 'Failed to update item status');
@@ -148,6 +147,13 @@ const Order = () => {
 
     return (
         <View className="flex-1 bg-[#F3F4F6]">
+            <ConfirmationModal
+                visible={confirmModal.visible}
+                onConfirm={confirmOrderDelivery}
+                onCancel={() => setConfirmModal({ visible: false, orderId: null })}
+                title="Mark Order as Ready"
+                message="Are you sure all items are prepared and ready to be served?"
+            />
             <FlatList
                 horizontal
                 data={tableList}

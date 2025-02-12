@@ -66,7 +66,6 @@ const KitchenHome = () => {
   const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn);
   const setRole = loginStore((state) => state.setRole);
 
-  // Initialize checkedItems with useEffect to avoid computation on every render
   const [checkedItems, setCheckedItems] = useState({});
   useEffect(() => {
     setCheckedItems(getInitialCheckedItems(orders));
@@ -78,7 +77,7 @@ const KitchenHome = () => {
     if (!orders || !menuItemsMap) return [];
 
     return orders
-      .filter(order => order.order_status === 'In Progress')
+      .filter(order => order.order_status !== 'Completed')
       .sort((a, b) => a.order_id - b.order_id)
       .map(order => ({
         id: order.order_id,
