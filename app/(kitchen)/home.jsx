@@ -9,6 +9,7 @@ import icons from "../../constants/icons";
 import { router } from "expo-router";
 import { useSocketStore } from "../../hooks/useSocket";
 import { parseOrderDetails, createMenuItemsMap, getInitialCheckedItems } from "../../utils/kitchenUtils";
+import { updateOrder } from "../../services/orderService";
 
 const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck }) => {
   return (
@@ -93,30 +94,6 @@ const KitchenHome = () => {
       }));
   }, [orders, menuItemsMap]);
 
-  // Consolidated update order function
-  const updateOrder = useCallback(async (orderId, updateData) => {
-    try {
-      const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!response.ok) throw new Error('Failed to update order');
-
-      const updatedOrder = await response.json();
-      useSharedStore.getState().setOrders(
-        orders.map(order => order.order_id === orderId ? updatedOrder : order)
-      );
-
-      await useSocketStore.getState().trackUpdatedOrder(orderId);
-      return true;
-    } catch (error) {
-      console.error('Error updating order:', error);
-      return false;
-    }
-  }, [orders]);
-
   const toggleItemCheck = useCallback(async (orderId, itemIndex) => {
     const currentOrder = orders.find(order => order.order_id === orderId);
     if (!currentOrder) return;
@@ -142,7 +119,7 @@ const KitchenHome = () => {
         [`${orderId}-${itemIndex}`]: newStatus === 'Ready'
       }));
     }
-  }, [checkedItems, orders, updateOrder]);
+  }, [checkedItems, orders]);
 
   return (
     <View className="flex-1 bg-background">

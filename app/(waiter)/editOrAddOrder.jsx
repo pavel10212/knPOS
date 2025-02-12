@@ -9,6 +9,7 @@ import { useSharedStore } from "../../hooks/useSharedStore";
 import { useSocketStore } from "../../hooks/useSocket";
 import MenuOrderItem from "../../components/menuOrderItem";
 import InventoryItem from "../../components/InventoryItem";
+import { orderService } from '../../services/orderService';
 
 const EditOrAddOrder = () => {
   const { order } = useLocalSearchParams();
@@ -175,37 +176,19 @@ const EditOrAddOrder = () => {
         ),
       };
 
-      const endpoint = isEditMode ? "orders-update" : "orders-insert";
-      const method = isEditMode ? "PUT" : "POST";
-      const body = isEditMode
-        ? {
-          order_id: order,
-          order_status: "Pending",
-          completion_date_time: null,
-          total_amount: total,
-          order_details: orderDetails.order_details,
-        }
-        : orderDetails;
-
       // If editing, ensure update tracking is set before the API call
       if (isEditMode) {
         await useSocketStore.getState().trackUpdatedOrder(parseInt(order, 10));
       }
 
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/${endpoint}`,
-        {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      );
-
-      if (!response.ok)
-        throw new Error(`Failed to ${isEditMode ? "update" : "place"} order`);
-
-      const serverData = await response.json();
-      const savedOrder = Array.isArray(serverData) ? serverData[0] : serverData;
+      const savedOrder = await (isEditMode
+        ? orderService.updateOrder(order, {
+          order_status: "Pending",
+          completion_date_time: null,
+          total_amount: total,
+          order_details: orderDetails.order_details,
+        })
+        : orderService.createOrder(orderDetails));
 
       // For new orders, ensure tracking is set before updating state
       if (!isEditMode) {
@@ -221,9 +204,7 @@ const EditOrAddOrder = () => {
         : [...orders, savedOrder];
 
       setOrders(updatedOrders);
-
       useInventoryStore.getState().fetchInventory();
-
       setTemporaryOrder([]);
       router.push("home");
     } catch (error) {

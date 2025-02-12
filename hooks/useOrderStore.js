@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useSharedStore } from "./useSharedStore";
+import { orderService } from "../services/orderService";
 
 export const useOrderStore = create((set, get) => ({
   // State
@@ -29,20 +30,8 @@ export const useOrderStore = create((set, get) => ({
     );
 
     try {
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-update`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            order_id: orderId,
-            order_details: JSON.stringify(updatedDetails),
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to update order notes");
-
+      await orderService.updateOrderNotes(orderId, updatedDetails);
+      
       const updatedOrders = orders.map((o) =>
         o.order_id === orderId
           ? { ...o, order_details: JSON.stringify(updatedDetails) }
@@ -62,13 +51,7 @@ export const useOrderStore = create((set, get) => ({
     const setOrders = useSharedStore.getState().setOrders;
 
     try {
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/orders-for-today`
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch orders");
-
-      const data = await response.json();
+      const data = await orderService.fetchTodayOrders();
       setOrders(data);
       return data;
     } catch (error) {

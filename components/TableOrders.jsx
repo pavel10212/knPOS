@@ -2,106 +2,41 @@ import { Text, TouchableOpacity, View, Alert, ScrollView, useWindowDimensions } 
 import ItemStatusButton from './ItemStatusButton';
 import { format } from 'date-fns';
 
-const OrderStatus = {
-    IN_PROGRESS: 'In Progress',
-    READY: 'Ready',
-    COMPLETED: 'Completed'
-};
-
-const getStatusColor = (status) => {
-    switch (status) {
-        case 'Pending': return 'bg-yellow-500';
-        case 'In Progress': return 'bg-blue-500';
-        case 'Ready': return 'bg-green-500';
-        case 'Completed': return 'bg-gray-500';
-        default: return 'bg-gray-300';
-    }
-};
-
-const getActionButton = (status) => {
-    switch (status) {
-        case OrderStatus.READY:
-            return { text: 'Deliver', color: 'bg-purple-500' };
-        case OrderStatus.COMPLETED:
-            return { text: 'Completed', color: 'bg-gray-500' };
-        default:
-            return { text: 'In Progress', color: 'bg-blue-300' };
-    }
-};
-
-const OrderItem = ({ item, onStatusChange }) => {
-    const handleStatusPress = () => {
-        if (item.type === 'inventory') {
-            Alert.alert(
-                'Mark Drink as Served',
-                'Confirm this drink has been served:',
-                [
-                    { text: 'Completed', onPress: () => onStatusChange('Completed') },
-                    { text: 'Cancel', style: 'cancel' },
-                ]
-            );
-        } else if (item.type === 'menu') {
-            Alert.alert(
-                'Update Menu Item Status',
-                'Select the new status:',
-                [
-                    { text: 'Ready', onPress: () => onStatusChange('Ready') },
-                    { text: 'Cancel', style: 'cancel' },
-                ]
-            );
-        }
-    };
-
-    return (
-        <View className="border-b border-gray-200 py-2">
-            <View className="flex-row justify-between items-center">
-                <Text className="flex-1">{item.name}</Text>
-                <TouchableOpacity onPress={handleStatusPress}>
-                    <View className={`h-3 w-3 rounded-full ${getStatusColor(item.status)}`} />
-                </TouchableOpacity>
-            </View>
-            <Text className="text-sm text-gray-500">x{item.quantity}</Text>
-        </View>
-    );
-};
-
 const TableOrders = ({ table, onItemStatusChange, onOrderDelivery }) => {
     return (
         <View className="w-[300px] m-2 bg-white rounded-xl shadow-md overflow-hidden">
             <View className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                 <Text className="text-lg font-bold text-gray-800">{table.name}</Text>
             </View>
-            
-            <ScrollView 
+
+            <ScrollView
                 className="max-h-[600px]"
                 showsVerticalScrollIndicator={false}
             >
                 {table.orders.map((order) => (
-                    <View 
-                        key={order.id} 
+                    <View
+                        key={order.id}
                         className="p-4 border-b border-gray-100"
                     >
                         <View className="flex-row justify-between items-center mb-3">
                             <Text className="text-sm text-gray-500">
                                 {format(new Date(order.order_date_time), 'HH:mm')}
                             </Text>
-                            <View className={`px-2 py-1 rounded-md ${
-                                order.status === 'Ready' 
-                                    ? 'bg-green-100' 
-                                    : 'bg-yellow-100'
-                            }`}>
-                                <Text className={`text-sm font-medium ${
-                                    order.status === 'Ready'
-                                        ? 'text-green-700'
-                                        : 'text-yellow-700'
+                            <View className={`px-2 py-1 rounded-md ${order.status === 'Ready'
+                                ? 'bg-green-100'
+                                : 'bg-yellow-100'
                                 }`}>
+                                <Text className={`text-sm font-medium ${order.status === 'Ready'
+                                    ? 'text-green-700'
+                                    : 'text-yellow-700'
+                                    }`}>
                                     {order.status}
                                 </Text>
                             </View>
                         </View>
 
                         {order.items.map((item, index) => (
-                            <View 
+                            <View
                                 key={index}
                                 className="mb-2 p-2 bg-gray-50 rounded-lg"
                             >

@@ -28,7 +28,7 @@ const Order = () => {
 
         // Check if all items are completed
         const allItemsCompleted = orderDetails.every(item => item.status === 'Completed');
-        
+
         if (!allItemsCompleted) {
             Alert.alert(
                 'Cannot Mark as Ready',
@@ -43,7 +43,7 @@ const Order = () => {
     const confirmOrderDelivery = async () => {
         const orderId = confirmModal.orderId;
         const foundOrder = orders.find(o => o.order_id === orderId);
-        
+
         try {
             const orderDetails = typeof foundOrder.order_details === 'string'
                 ? JSON.parse(foundOrder.order_details)

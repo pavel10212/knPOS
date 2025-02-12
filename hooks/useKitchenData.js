@@ -19,7 +19,10 @@ export const useKitchenData = () => {
       if (retries < MAX_RETRIES) {
         setTimeout(() => fetchDataWithRetry(fetchFn, retries + 1), RETRY_DELAY);
       } else {
-        console.error(`Failed to fetch data after ${MAX_RETRIES} retries:`, error);
+        console.error(
+          `Failed to fetch data after ${MAX_RETRIES} retries:`,
+          error
+        );
       }
     }
   }, []);
@@ -30,7 +33,7 @@ export const useKitchenData = () => {
     const initializeLoad = async () => {
       await Promise.all([
         fetchDataWithRetry(fetchOrders),
-        fetchDataWithRetry(fetchMenu)
+        fetchDataWithRetry(fetchMenu),
       ]);
     };
 
@@ -42,4 +45,3 @@ export const useKitchenData = () => {
     };
   }, [fetchDataWithRetry]);
 };
-

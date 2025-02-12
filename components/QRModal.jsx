@@ -3,8 +3,7 @@ import { ActivityIndicator, Modal, Text, TouchableOpacity, View, PermissionsAndr
 import QRCode from 'react-native-qrcode-svg';
 import { tableStore } from "../hooks/useStore";
 import { initializePrinter, printQRCode } from '../utils/printerUtil';
-
-const API_BASE = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
+import { qrService } from '../services/qrService';
 
 const QRModal = ({ visible, onClose, table_num }) => {
     const [qrValue, setQrValue] = useState('');
@@ -69,13 +68,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
             setIsLoading(true);
             setError(null);
             try {
-                const tokenResponse = await fetch(`${API_BASE}/generate-token`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ table_num }),
-                });
-                if (!tokenResponse.ok) throw new Error('Failed to generate QR code');
-                const { url } = await tokenResponse.json();
+                const { url } = await qrService.generateToken(table_num);
                 if (!url) throw new Error('Invalid QR code data');
                 setQrValue(url);
                 await updateTableStatus(table_num, "Unavailable");

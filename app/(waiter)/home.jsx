@@ -20,7 +20,6 @@ const Home = () => {
   const selectedTable = tableStore((state) => state.selectedTable);
   const reservationModal = tableStore((state) => state.reservationModal);
   const setReservationModal = tableStore((state) => state.setReservationModal);
-  const setDropdownTable = tableStore((state) => state.setDropdownTable);
   const orders = useSharedStore((state) => state.orders);
   const [ordersForRender, setOrdersForRender] = useState([]);
 

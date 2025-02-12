@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useSharedStore } from "./useSharedStore";
+import { tableService } from "../services/tableService";
 
 export const loginStore = create((set) => ({
   role: "waiter",
@@ -33,29 +34,8 @@ export const tableStore = create((set, get) => ({
       console.log(
         `📡 Sending PUT request to /table-update for table ${table_num} with status ${newStatus}`
       );
-      const updateData = {
-        table_num: table_num,
-        status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
-      };
-
-      if (reservationDetails) {
-        updateData.reservation_details = reservationDetails;
-      }
-
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/table-update`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("❌ Server response error:", errorData);
-        throw new Error("Failed to update table status");
-      }
+      
+      const updateData = await tableService.updateTableStatus(table_num, newStatus, reservationDetails);
       console.log(`✅ Table ${table_num} status updated successfully`);
 
       const tables = useSharedStore.getState().tables;
@@ -124,25 +104,8 @@ export const tableStore = create((set, get) => ({
 
     try {
       console.log("Fetching tables from server...");
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/table-get`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tables");
-      }
-
-      const data = await response.json();
-      console.log(`✅ Received ${data.length} tables from server`);
-
-      const processedData = data.map((table) => ({
-        ...table,
-        location:
-          typeof table.location === "string"
-            ? JSON.parse(table.location)
-            : table.location,
-      }));
-
+      const processedData = await tableService.fetchTables();
+      console.log(`✅ Received ${processedData.length} tables from server`);
       setTables(processedData);
     } catch (error) {
       console.error("❌ Error fetching tables:", error);

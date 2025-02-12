@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useSharedStore } from "./useSharedStore";
+import { inventoryService } from "../services/inventoryService";
 
 export const useInventoryStore = create((set, get) => ({
   error: null,
@@ -9,13 +10,7 @@ export const useInventoryStore = create((set, get) => ({
   fetchInventory: async () => {
     const setInventory = useSharedStore.getState().setInventory;
     try {
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP}:3000/inventory-get`
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch inventory");
-
-      const inventory = await response.json();
+      const inventory = await inventoryService.fetchInventory();
       setInventory(inventory);
     } catch (error) {
       console.error("❌ Error fetching inventory:", error);
