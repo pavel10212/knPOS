@@ -22,7 +22,16 @@ export const tableStore = create((set, get) => ({
   },
 
   setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
-  updateSelectedTable: (table) => set({ selectedTable: table }),
+    resetTableToken: async (table_num) => {
+    try {
+      console.log(`Sending PUT request to /table-reset for table ${table_num}`);
+        await tableService.resetTableToken(table_num);
+        console.log(`✅ Table ${table_num} token reset successfully`);
+    } catch (error) {
+      console.error("❌ Error resetting table token:", error);
+      throw error;
+    }
+  },
 
   // Table Status
   updateTableStatus: async (
@@ -34,8 +43,12 @@ export const tableStore = create((set, get) => ({
       console.log(
         `📡 Sending PUT request to /table-update for table ${table_num} with status ${newStatus}`
       );
-      
-      const updateData = await tableService.updateTableStatus(table_num, newStatus, reservationDetails);
+
+      const updateData = await tableService.updateTableStatus(
+        table_num,
+        newStatus,
+        reservationDetails
+      );
       console.log(`✅ Table ${table_num} status updated successfully`);
 
       const tables = useSharedStore.getState().tables;

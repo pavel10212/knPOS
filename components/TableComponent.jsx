@@ -1,18 +1,19 @@
-import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal } from 'react-native'
-import React, { useState } from 'react'
-import { useSharedStore } from '../hooks/useSharedStore';
-import { tableStore } from '../hooks/useStore';
-import { updateOrderStatus } from '../services/orderService';
+import {Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal} from 'react-native'
+import React, {useState} from 'react'
+import {useSharedStore} from '../hooks/useSharedStore';
+import {tableStore} from '../hooks/useStore';
+import {updateOrderStatus} from '../services/orderService';
 
 const TableComponent = ({
-    table_num,
-    capacity,
-    status,
-    reservation_details,
-    location,
-    rotation,
-    onReserve
-}) => {
+                            table_num,
+                            capacity,
+                            status,
+                            reservation_details,
+                            location,
+                            rotation,
+                            token,
+                            onReserve
+                        }) => {
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = -50;
     const OFFSET_Y = 50;
@@ -21,6 +22,7 @@ const TableComponent = ({
     const dropdownTableNumber = tableStore((state) => state.dropdownTableNumber)
     const setDropdownTable = tableStore((state) => state.setDropdownTable)
     const updateTableStatus = tableStore((state) => state.updateTableStatus)
+    const resetTableToken = tableStore((state) => state.resetTableToken)
     const orders = useSharedStore((state) => state.orders);
     const setOrders = useSharedStore((state) => state.setOrders);
 
@@ -28,7 +30,8 @@ const TableComponent = ({
     const [isReservationVisible, setIsReservationVisible] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-    const ordersForTable = orders.filter((order) => order.table_num === table_num);
+    const ordersForTable = orders.filter((order) => order.table_num === table_num && order.order_status !== 'Completed');
+
 
     const ifLongPressed = () => {
         setIsReservationVisible(false);
@@ -46,8 +49,13 @@ const TableComponent = ({
                 setShowConfirmModal(true);
                 return;
             }
-            const success = await updateTableStatus(table_num, newStatus);
-            if (!success) throw new Error('Failed to update table status');
+            
+            if (newStatus === 'available') {
+                await resetTableToken(table_num);
+            } else {
+                const success = await updateTableStatus(table_num, newStatus);
+                if (!success) throw new Error('Failed to update table status');
+            }
             setDropdownTable(null);
         } catch (error) {
             console.error('Error updating table status:', error);
@@ -76,9 +84,7 @@ const TableComponent = ({
                 ...updatedOrders,
             ]);
 
-            // Then update table status
-            const success = await updateTableStatus(table_num, 'Available');
-            if (!success) throw new Error('Failed to update table status');
+            await resetTableToken(table_num);
 
             setShowConfirmModal(false);
             setDropdownTable(null);
@@ -89,18 +95,25 @@ const TableComponent = ({
 
     const getBackgroundColor = () => {
         switch (status) {
-            case 'Unavailable': return 'bg-red-700'
-            case 'Available': return 'bg-green-600'
-            case 'Reserved': return 'bg-yellow-500'
-            default: return 'bg-gray-500'
+            case 'Unavailable':
+                return 'bg-red-700'
+            case 'Available':
+                return 'bg-green-600'
+            case 'Reserved':
+                return 'bg-yellow-500'
+            default:
+                return 'bg-gray-500'
         }
     }
 
     const getTableSize = () => {
         switch (capacity) {
-            case 2: return 'w-32 h-32'
-            case 6: return 'w-48 h-32'
-            default: return 'w-32 h-32'
+            case 2:
+                return 'w-32 h-32'
+            case 6:
+                return 'w-48 h-32'
+            default:
+                return 'w-32 h-32'
         }
     }
 
@@ -136,7 +149,7 @@ const TableComponent = ({
     };
 
     const getCounterRotation = () => ({
-        transform: [{ rotate: `${-(rotation || 0)}deg` }]
+        transform: [{rotate: `${-(rotation || 0)}deg`}]
     });
 
     const handleOutsideClick = () => {
@@ -156,16 +169,16 @@ const TableComponent = ({
             handleOutsideClick();
             return;
         }
-        selectTable({ table_num, orders, capacity, status, reservation_details });
+        selectTable({table_num, orders, capacity, status, reservation_details, token});
     };
 
     return (
-        <View style={{ position: 'relative' }}>
+        <View style={{position: 'relative'}}>
             {/* Table Container */}
             <View style={{
                 position: 'absolute',
                 ...getBasePosition(),
-                transform: [{ rotate: `${rotation || 0}deg` }],
+                transform: [{rotate: `${rotation || 0}deg`}],
                 zIndex: 1
             }}>
                 <TouchableOpacity
@@ -197,7 +210,7 @@ const TableComponent = ({
                         right: 0,
                         bottom: 0,
                         zIndex: 998
-                    }} />
+                    }}/>
                 </TouchableWithoutFeedback>
             )}
 
@@ -264,17 +277,23 @@ const TableComponent = ({
                     <View className="flex-1 justify-center items-center bg-black/50">
                         <TouchableWithoutFeedback>
                             <View className="bg-white p-8 rounded-xl w-[450px] shadow-xl">
-                                <Text className="text-xl font-bold mb-4 text-gray-800">Complete Orders & Change Status</Text>
+                                <Text className="text-xl font-bold mb-4 text-gray-800">Complete Orders & Change
+                                    Status</Text>
                                 <Text className="mb-4 text-gray-600 text-base">
-                                    This table has {ordersForTable.length} active order{ordersForTable.length > 1 ? 's' : ''}.
+                                    This table has {ordersForTable.length} active
+                                    order{ordersForTable.length > 1 ? 's' : ''}.
                                 </Text>
                                 <Text className="mb-8 text-gray-600 text-base">
-                                    Would you like to mark {ordersForTable.length > 1 ? 'all orders' : 'the order'} as completed
+                                    Would you like to mark {ordersForTable.length > 1 ? 'all orders' : 'the order'} as
+                                    completed
                                     and change the table status to available?
                                 </Text>
                                 <View className="flex-row justify-end space-x-6">
                                     <TouchableOpacity
-                                        onPress={() => { setShowConfirmModal(false); setDropdownTable(false); }}
+                                        onPress={() => {
+                                            setShowConfirmModal(false);
+                                            setDropdownTable(false);
+                                        }}
                                         className="px-6 py-3 rounded-lg bg-gray-100 border border-gray-200"
                                     >
                                         <Text className="text-gray-600 font-medium">Cancel</Text>

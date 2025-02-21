@@ -14,7 +14,7 @@ import { updateOrderWithPayment } from '../../services/orderService';
 const Payment = () => {
   const orders = useSharedStore((state) => state.orders);
   const selectedTable = tableStore((state) => state.selectedTable);
-  const updateTableStatus = tableStore((state) => state.updateTableStatus);
+  const resetTableToken = tableStore((state) => state.resetTableToken);
   const menu = useSharedStore((state) => state.menu);
   const setOrders = useSharedStore((state) => state.setOrders);
   const inventory = useSharedStore((state) => state.inventory);
@@ -22,6 +22,7 @@ const Payment = () => {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [discount, setDiscount] = useState(0);
   const [cashReceived, setCashReceived] = useState(0);
+
 
   const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20, 50];
   const CASH_AMOUNTS = [100, 200, 300, 500];
@@ -153,7 +154,7 @@ const Payment = () => {
         ...updatedOrders,
       ]);
 
-      await updateTableStatus(selectedTable.table_num, "Available");
+      await resetTableToken(selectedTable.table_num);
       router.push("/home");
     } catch (error) {
       console.error("Error updating orders:", error);
