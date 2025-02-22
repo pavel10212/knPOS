@@ -1,15 +1,12 @@
-import { Text, TouchableOpacity, View, TextInput, Modal } from 'react-native';
-import { useState } from 'react';
+import {Text, TouchableOpacity, View, TextInput, Modal} from 'react-native';
+import {useState} from 'react';
 
-const MenuOrderItem = ({ order, onIncrease, onDecrease }) => {
+const MenuOrderItem = ({order, onIncrease, onDecrease, handleNotesChange}) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [noteText, setNoteText] = useState(order.request);
 
     const handleSave = () => {
-        if (order.request !== noteText) {
-            order.request = noteText;
-            onIncrease(order.id, 0, noteText); // Using onIncrease as a handler to pass notes
-        }
+        handleNotesChange(order.uniqueKey, noteText)
         setIsModalVisible(false);
     };
 

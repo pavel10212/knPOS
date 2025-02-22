@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Modal, Text, TouchableOpacity, View, PermissionsAndroid } from "react-native";
+import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from "react-native";
 import QRCode from 'react-native-qrcode-svg';
 import { tableStore } from "../hooks/useStore";
 import { initializePrinter, printQRCode } from '../utils/printerUtil';
@@ -12,6 +12,9 @@ const QRModal = ({ visible, onClose, table_num }) => {
     // Use useRef instead of state for the QRCode ref
     const qrRef = useRef(null);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
+
+    console.log('QRModal rendered with table_num:', table_num);
+    console.log('QRModal value:', qrValue);
 
     useEffect(() => {
         initializePrinter().catch(err => {

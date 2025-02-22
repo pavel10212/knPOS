@@ -23,15 +23,19 @@ const EditOrAddOrder = () => {
     const [activeTab, setActiveTab] = useState('menu');
     const inventory = useSharedStore((state) => state.inventory);
 
-    const handleNotesChange = (itemTitle, index, newNotes) => {
-        if (!selectedTable) return;
-    };
+    const handleNotesChange = useCallback((uniqueKey, newNotes) => {
+        setTemporaryOrder(prev =>
+            prev.map(item =>
+                item.uniqueKey === uniqueKey ? {...item, request: newNotes} : item
+            )
+        );
+    }, []);
 
     const existingOrder = useMemo(() => {
         if (!isEditMode || !order) return null;
         const numericOrderId = parseInt(order, 10);
         return orders.find((order) => order.order_id === numericOrderId);
-    }, [order, orders, isEditMode]);
+    }, [order, isEditMode]);
 
     const total = useMemo(
         () =>
@@ -39,74 +43,59 @@ const EditOrAddOrder = () => {
         [temporaryOrder]
     );
 
-    const handleItemAction = useCallback((item, action, notes = null) => {
+    const handleItemAction = useCallback((item, action, uniqueKey = null) => {
         setTemporaryOrder((prevOrder) => {
-            const existingItem = prevOrder.find((o) => o.id === item.menu_item_id);
-
-            // Handle notes update
-            if (notes !== null && existingItem) {
-                return prevOrder.map(curr =>
-                    curr.id === item.menu_item_id
-                        ? {...curr, request: notes}
-                        : curr
-                );
+            if (action === "add") {
+                const newItem = {
+                    id: item.menu_item_id,
+                    uniqueKey: `${item.menu_item_id}-${Date.now()}-${Math.random()}`,
+                    name: item.menu_item_name,
+                    price: item.price,
+                    request: "",
+                    quantity: 1,
+                };
+                return [...prevOrder, newItem];
+            } else if (action === "remove") {
+                if (uniqueKey) {
+                    return prevOrder.filter((i) => i.uniqueKey !== uniqueKey);
+                } else {
+                    const itemsOfType = prevOrder.filter((i) => i.id === item.menu_item_id);
+                    if (itemsOfType.length === 0) return prevOrder;
+                    const lastItem = itemsOfType[itemsOfType.length - 1];
+                    return prevOrder.filter((i) => i.uniqueKey !== lastItem.uniqueKey);
+                }
             }
-
-            const quantity = action === "add" ? 1 : -1;
-
-            if (!existingItem && quantity > 0) {
-                return [
-                    ...prevOrder,
-                    {
-                        id: item.menu_item_id,
-                        name: item.menu_item_name,
-                        price: item.price,
-                        quantity,
-                    },
-                ];
-            }
-
-            return prevOrder.reduce((acc, curr) => {
-                if (curr.id !== item.menu_item_id) return [...acc, curr];
-                const newQuantity = curr.quantity + quantity;
-                return newQuantity > 0
-                    ? [...acc, {...curr, quantity: newQuantity}]
-                    : acc;
-            }, []);
+            return prevOrder;
         });
     }, []);
 
-    const handleInventoryAction = useCallback((item, action) => {
+
+    const handleInventoryAction = useCallback((item, action, uniqueKey = null) => {
         setTemporaryOrder((prevOrder) => {
-            const existingItem = prevOrder.find(
-                (o) => o.id === item.inventory_item_id && o.type === 'inventory'
-            );
-
-            const quantity = action === "add" ? 1 : -1;
-
-            if (!existingItem && quantity > 0) {
-                return [
-                    ...prevOrder,
-                    {
-                        id: item.inventory_item_id,
-                        name: item.inventory_item_name,
-                        price: item.cost_per_unit,
-                        quantity,
-                        type: 'inventory'
-                    },
-                ];
+            if (action === "add") {
+                const newItem = {
+                    id: item.inventory_item_id,
+                    uniqueKey: `${item.inventory_item_id}-${Date.now()}-${Math.random()}`,
+                    name: item.inventory_item_name,
+                    price: item.cost_per_unit,
+                    quantity: 1,
+                    type: 'inventory'
+                };
+                return [...prevOrder, newItem];
+            } else if (action === "remove") {
+                if (uniqueKey) {
+                    return prevOrder.filter((i) => i.uniqueKey !== uniqueKey);
+                } else {
+                    const itemsOfType = prevOrder.filter((i) => i.id === item.inventory_item_id);
+                    if (itemsOfType.length === 0) return prevOrder;
+                    const lastItem = itemsOfType[itemsOfType.length - 1];
+                    return prevOrder.filter((i) => i.uniqueKey !== lastItem.uniqueKey);
+                }
             }
-
-            return prevOrder.reduce((acc, curr) => {
-                if (curr.id !== item.inventory_item_id || curr.type !== 'inventory')
-                    return [...acc, curr];
-                const newQuantity = curr.quantity + quantity;
-                return newQuantity > 0
-                    ? [...acc, {...curr, quantity: newQuantity}]
-                    : acc;
-            }, []);
+            return prevOrder;
         });
     }, []);
+
 
     useEffect(() => {
         if (existingOrder) {
@@ -115,39 +104,46 @@ const EditOrAddOrder = () => {
                     ? JSON.parse(existingOrder.order_details)
                     : existingOrder.order_details;
 
-            const initialOrder = orderDetails.map((detail) => {
+            const initialOrder = orderDetails.flatMap((detail) => {
                 const isInventory = detail.type === "inventory";
                 let itemDetails;
+                const entries = [];
 
-                if (isInventory) {
-                    itemDetails = inventory?.find(
-                        (inv) => inv.inventory_item_id === detail.inventory_item_id
-                    );
-                    return {
-                        id: detail.inventory_item_id,
-                        name: itemDetails?.inventory_item_name || `Unknown item ${detail.inventory_item_id}`,
-                        price: itemDetails?.cost_per_unit || 0,
-                        quantity: detail.quantity,
-                        type: 'inventory'
-                    };
-                } else {
-                    itemDetails = menu?.find(
-                        (mi) => mi.menu_item_id === detail.menu_item_id
-                    );
-                    return {
-                        id: detail.menu_item_id,
-                        name: itemDetails?.menu_item_name || `Unknown item ${detail.menu_item_id}`,
-                        price: itemDetails?.price || 0,
-                        quantity: detail.quantity,
-                        request: detail.request || "",
-                    };
+                for (let i = 0; i < detail.quantity; i++) {
+                    if (isInventory) {
+                        itemDetails = inventory?.find(
+                            (inv) => inv.inventory_item_id === detail.inventory_item_id
+                        );
+                        entries.push({
+                            id: detail.inventory_item_id,
+                            uniqueKey: `${detail.inventory_item_id}-${Date.now()}-${i}`,
+                            name: itemDetails?.inventory_item_name || `Unknown item ${detail.inventory_item_id}`,
+                            price: itemDetails?.cost_per_unit || 0,
+                            quantity: 1,
+                            type: 'inventory'
+                        });
+                    } else {
+                        itemDetails = menu?.find(
+                            (mi) => mi.menu_item_id === detail.menu_item_id
+                        );
+                        entries.push({
+                            id: detail.menu_item_id,
+                            uniqueKey: `${detail.menu_item_id}-${Date.now()}-${i}`,
+                            name: itemDetails?.menu_item_name || `Unknown item ${detail.menu_item_id}`,
+                            price: itemDetails?.price || 0,
+                            quantity: 1,
+                            request: detail.request || "",
+                        });
+                    }
                 }
+                return entries;
             });
             setTemporaryOrder(initialOrder);
         } else {
             setTemporaryOrder([]);
         }
     }, [order, menu, inventory, existingOrder]);
+
 
     const handleFinishOrder = useCallback(async () => {
         if (!selectedTable || !temporaryOrder.length) return;
@@ -180,7 +176,6 @@ const EditOrAddOrder = () => {
             if (isEditMode) {
                 await useSocketStore.getState().trackUpdatedOrder(parseInt(order, 10));
             }
-            console.log("Token type", selectedTable);
             const savedOrder = await (isEditMode
                 ? orderService.updateOrder(order, {
                     order_status: "Pending",
@@ -210,7 +205,7 @@ const EditOrAddOrder = () => {
         } catch (error) {
             console.error("Error handling order:", error.message);
         }
-    }, [isEditMode, order, selectedTable, temporaryOrder, orders]);
+    }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders]);
 
     const renderMenuItem = useMemo(
         () =>
@@ -229,12 +224,9 @@ const EditOrAddOrder = () => {
                         }
                         description={item.description}
                         onChangeQuantity={(action) => handleItemAction(item, action)}
-                        onNotesChange={(index, notes) =>
-                            handleNotesChange(item.menu_item_name, index, notes)
-                        }
                     />
                 ),
-        [temporaryOrder, handleItemAction, handleNotesChange]
+        [temporaryOrder, handleItemAction]
     );
 
     const renderInventoryItem = useMemo(
@@ -366,6 +358,7 @@ const EditOrAddOrder = () => {
                                                 ? handleInventoryAction({inventory_item_id: id, ...item}, "remove")
                                                 : handleItemAction({menu_item_id: id, ...item}, "remove")
                                         }
+                                        handleNotesChange={handleNotesChange}
                                     />
                                 )}
                                 keyExtractor={(item) => `${item.type || 'menu'}-${item.id}-${Math.random()}`}
