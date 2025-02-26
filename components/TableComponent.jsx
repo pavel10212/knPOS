@@ -15,8 +15,8 @@ const TableComponent = ({
                             onReserve
                         }) => {
     const SCALE_FACTOR = 0.8;
-    const OFFSET_X = -50;
-    const OFFSET_Y = 50;
+    const OFFSET_X = 30;
+    const OFFSET_Y = 15;
 
     const selectTable = tableStore((state) => state.selectTable)
     const dropdownTableNumber = tableStore((state) => state.dropdownTableNumber)
