@@ -104,28 +104,42 @@ const KitchenHome = () => {
         const currentOrder = orders?.find(order => order.order_id === orderId);
         if (!currentOrder) return;
 
-        const orderDetails = parseOrderDetails(currentOrder.order_details || '[]');
-        const newStatus = orderDetails[itemIndex].status === 'Completed' ? 'Pending' : 'Completed';
-        orderDetails[itemIndex].status = newStatus;
+        // Optimistically update the UI
+        const newStatus = !checkedItems[`${orderId}-${itemIndex}`];
+        setCheckedItems(prev => ({
+            ...prev,
+            [`${orderId}-${itemIndex}`]: newStatus
+        }));
 
-        const allItemsCompleted = orderDetails
-            .filter(d => d.type === 'menu')
-            .every(d => d.status === 'Completed');
-        const newOrderStatus = allItemsCompleted ? 'Completed' : 'In Progress';
+        try {
+            const orderDetails = parseOrderDetails(currentOrder.order_details || '[]');
+            const updatedStatus = newStatus ? 'Completed' : 'Pending';
+            orderDetails[itemIndex].status = updatedStatus;
 
-        const success = await updateOrder(orderId, {
-            ...currentOrder,
-            order_details: JSON.stringify(orderDetails),
-            order_status: newOrderStatus
-        });
+            const allItemsCompleted = orderDetails
+                .filter(d => d.type === 'menu')
+                .every(d => d.status === 'Completed');
+            const newOrderStatus = allItemsCompleted ? 'Completed' : 'In Progress';
 
-        if (success) {
+            const success = await updateOrder(orderId, {
+                ...currentOrder,
+                order_details: JSON.stringify(orderDetails),
+                order_status: newOrderStatus
+            });
+
+            if (!success) throw new Error('Failed to update order');
+
+        } catch (error) {
+            // Revert the optimistic update if the API call fails
             setCheckedItems(prev => ({
                 ...prev,
-                [`${orderId}-${itemIndex}`]: newStatus === 'Completed'
+                [`${orderId}-${itemIndex}`]: !newStatus
             }));
+            console.error('Failed to update order status:', error);
+            // Optionally show an error message to the user
+            alert('Failed to update order status. Please try again.');
         }
-    }, [orders]);
+    }, [orders, checkedItems]);
 
     return (
         <View className="flex-1 bg-background">
