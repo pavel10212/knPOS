@@ -116,15 +116,10 @@ const KitchenHome = () => {
             const updatedStatus = newStatus ? 'Completed' : 'Pending';
             orderDetails[itemIndex].status = updatedStatus;
 
-            const allItemsCompleted = orderDetails
-                .filter(d => d.type === 'menu')
-                .every(d => d.status === 'Completed');
-            const newOrderStatus = allItemsCompleted ? 'Completed' : 'In Progress';
-
             const success = await updateOrder(orderId, {
                 ...currentOrder,
                 order_details: JSON.stringify(orderDetails),
-                order_status: newOrderStatus
+                order_status: 'In Progress'
             });
 
             if (!success) throw new Error('Failed to update order');
@@ -136,7 +131,6 @@ const KitchenHome = () => {
                 [`${orderId}-${itemIndex}`]: !newStatus
             }));
             console.error('Failed to update order status:', error);
-            // Optionally show an error message to the user
             alert('Failed to update order status. Please try again.');
         }
     }, [orders, checkedItems]);
