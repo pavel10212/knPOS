@@ -1,16 +1,16 @@
-import React, {useState, useMemo, useCallback, Suspense, useEffect} from "react";
-import {ScrollView, Text, TouchableOpacity, View, Image} from "react-native";
+import React, { useState, useMemo, useCallback, Suspense, useEffect } from "react";
+import { ScrollView, Text, TouchableOpacity, View, Image } from "react-native";
 import Checkbox from "expo-checkbox";
 import Header from "../../components/Header";
-import {useKitchenData} from "../../hooks/useKitchenData";
-import {useSharedStore} from "../../hooks/useSharedStore";
-import {loginStore} from "../../hooks/useStore";
+import { useKitchenData } from "../../hooks/useKitchenData";
+import { useSharedStore } from "../../hooks/useSharedStore";
+import { loginStore } from "../../hooks/useStore";
 import icons from "../../constants/icons";
-import {router} from "expo-router";
-import {parseOrderDetails, createMenuItemsMap, getInitialCheckedItems, deduplicateOrders} from "../../utils/kitchenUtils";
-import {updateOrder} from "../../services/orderService";
+import { router } from "expo-router";
+import { parseOrderDetails, createMenuItemsMap, getInitialCheckedItems, deduplicateOrders } from "../../utils/kitchenUtils";
+import { updateOrder } from "../../services/orderService";
 
-const KitchenOrder = React.memo(({order, checkedItems, onToggleCheck}) => {
+const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck }) => {
     return (
         <View className="bg-white w-[300px] rounded-lg shadow-lg p-4 border border-gray-100">
             <View className="flex-row justify-between items-center mb-3 pb-2 border-b border-gray-100">
@@ -78,16 +78,16 @@ const KitchenHome = () => {
 
     const kitchenOrders = useMemo(() => {
         if (!orders) return [];
-        
+
         const uniqueOrders = deduplicateOrders(orders);
-        
+
         return uniqueOrders
-            .filter(order => order && order.order_status !== 'Completed')
+            .filter(order => order && order.order_status !== 'Completed' && order.order_status !== 'Ready')
             .sort((a, b) => a.order_id - b.order_id)
             .map(order => ({
                 id: order.order_id,
                 tableNum: order.table_num,
-                timestamp: order.order_date_time, // Add timestamp for unique key
+                timestamp: order.order_date_time,
                 items: parseOrderDetails(order.order_details)
                     .filter(detail => detail && detail.type === 'menu')
                     .map(detail => ({
@@ -105,13 +105,13 @@ const KitchenHome = () => {
         if (!currentOrder) return;
 
         const orderDetails = parseOrderDetails(currentOrder.order_details || '[]');
-        const newStatus = orderDetails[itemIndex].status === 'Ready' ? 'Pending' : 'Ready';
+        const newStatus = orderDetails[itemIndex].status === 'Completed' ? 'Pending' : 'Completed';
         orderDetails[itemIndex].status = newStatus;
 
-        const allItemsReady = orderDetails
+        const allItemsCompleted = orderDetails
             .filter(d => d.type === 'menu')
-            .every(d => d.status === 'Ready');
-        const newOrderStatus = allItemsReady ? 'Ready' : 'In Progress';
+            .every(d => d.status === 'Completed');
+        const newOrderStatus = allItemsCompleted ? 'Completed' : 'In Progress';
 
         const success = await updateOrder(orderId, {
             ...currentOrder,
@@ -122,14 +122,14 @@ const KitchenHome = () => {
         if (success) {
             setCheckedItems(prev => ({
                 ...prev,
-                [`${orderId}-${itemIndex}`]: newStatus === 'Ready'
+                [`${orderId}-${itemIndex}`]: newStatus === 'Completed'
             }));
         }
     }, [orders]);
 
     return (
         <View className="flex-1 bg-background">
-            <Header/>
+            <Header />
             <Suspense fallback={<Text>Loading...</Text>}>
                 <View className="px-4 py-6 flex-1">
                     <View className="flex-row justify-between items-center mb-4 pr-2">
@@ -164,7 +164,7 @@ const KitchenHome = () => {
 
                     <ScrollView
                         className="flex-1"
-                        contentContainerStyle={{paddingBottom: 20}}
+                        contentContainerStyle={{ paddingBottom: 20 }}
                         showsVerticalScrollIndicator={false}
                     >
                         <View className="flex-row flex-wrap justify-start gap-4 pb-4">

@@ -1,4 +1,5 @@
 import {create} from "zustand";
+import {loginStore} from "./useStore";
 import io from "socket.io-client";
 import Toast from "react-native-toast-message";
 import {useSharedStore} from "./useSharedStore";
@@ -16,7 +17,7 @@ export const useSocketStore = create((set, get) => ({
         if (socket) return;
 
         const newSocket = io(SOCKET_URL, {
-            transports: ["polling"],
+            transports: ['websocket', 'polling'], // Allow both WebSocket and polling
             upgrade: false,
             reconnection: true,
             reconnectionAttempts: 5,
@@ -89,10 +90,37 @@ export const useSocketStore = create((set, get) => ({
 
         });
 
+        newSocket.on("kitchen-call-waiter", () => {
+            const role = loginStore.getState().role;
+
+            if (role === "waiter") {
+                Toast.show({
+                    type: "info",
+                    text1: "Waiter Alert",
+                    text2: "The kitchen has called for a waiter",
+                });
+            }
+        })
+
+        newSocket.on("table-call-waiter", (table_token) => {
+            console.log("Table call waiter: ", table_token);
+            const role = loginStore.getState().role;
+            const tables = useSharedStore.getState().tables;
+
+            const table_num = tables.find((table) => table.table_token === table_token)?.table_num;
+
+            if (role === "waiter") {
+                Toast.show({
+                    type: "info",
+                    text1: "Waiter Alert",
+                    text2: `Table ${table_num} has called for a waiter`,
+                });
+            }
+        })
+
         newSocket.on("table-reset", (data) => {
             const tables = useSharedStore.getState().tables;
             const setTables = useSharedStore.getState().setTables;
-            console.log("Table reset data: ", data);
 
             const newTables = [
                 ...tables.filter((table) => table.table_num !== data.table_num),
@@ -163,6 +191,41 @@ export const useSocketStore = create((set, get) => ({
             set({socket: null});
         }
     },
+
+    callWaiterSocket: () => {
+        const {socket} = get();
+        if (!socket) {
+            console.error("Socket not initialized");
+            Toast.show({
+                type: "error",
+                text1: "Connection Error",
+                text2: "Unable to call waiter - not connected",
+            });
+            return;
+        }
+
+        if (!socket.connected) {
+            console.error("Socket not connected");
+            Toast.show({
+                type: "error",
+                text1: "Connection Error",
+                text2: "Unable to call waiter - reconnecting...",
+            });
+            socket.connect();
+            return;
+        }
+
+        socket.emit("kitchen-call-waiter", (error) => {
+            if (error) {
+                Toast.show({
+                    type: "error",
+                    text1: "Error",
+                    text2: "Failed to call waiter",
+                });
+            }
+        });
+    },
+
 
     trackProcessedOrder: (orderId) => {
         return new Promise((resolve) => {

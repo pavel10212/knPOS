@@ -1,18 +1,18 @@
-import {FlatList, Text, TouchableOpacity, View} from "react-native";
-import {SafeAreaView} from "react-native-safe-area-context";
+import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import MenuItem from "../../components/MenuItem";
-import {useLocalSearchParams, router} from "expo-router";
-import {tableStore} from "../../hooks/useStore";
-import {useEffect, useMemo, useState, useCallback} from "react";
-import {useInventoryStore} from "../../hooks/useInventoryData";
-import {useSharedStore} from "../../hooks/useSharedStore";
-import {useSocketStore} from "../../hooks/useSocket";
+import { useLocalSearchParams, router } from "expo-router";
+import { tableStore } from "../../hooks/useStore";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useInventoryStore } from "../../hooks/useInventoryData";
+import { useSharedStore } from "../../hooks/useSharedStore";
+import { useSocketStore } from "../../hooks/useSocket";
 import MenuOrderItem from "../../components/menuOrderItem";
 import InventoryItem from "../../components/InventoryItem";
-import {orderService} from '../../services/orderService';
+import { orderService } from '../../services/orderService';
 
 const EditOrAddOrder = () => {
-    const {order} = useLocalSearchParams();
+    const { order } = useLocalSearchParams();
     const isEditMode = Boolean(order);
     const selectedTable = tableStore((state) => state.selectedTable);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
@@ -21,12 +21,13 @@ const EditOrAddOrder = () => {
     const menu = useSharedStore((state) => state.menu);
     const orders = useSharedStore((state) => state.orders);
     const [activeTab, setActiveTab] = useState('menu');
+
     const inventory = useSharedStore((state) => state.inventory);
 
     const handleNotesChange = useCallback((uniqueKey, newNotes) => {
         setTemporaryOrder(prev =>
             prev.map(item =>
-                item.uniqueKey === uniqueKey ? {...item, request: newNotes} : item
+                item.uniqueKey === uniqueKey ? { ...item, request: newNotes } : item
             )
         );
     }, []);
@@ -48,6 +49,7 @@ const EditOrAddOrder = () => {
             if (action === "add") {
                 const newItem = {
                     id: item.menu_item_id,
+                    type: 'menu',
                     uniqueKey: `${item.menu_item_id}-${Date.now()}-${Math.random()}`,
                     name: item.menu_item_name,
                     price: item.price,
@@ -73,9 +75,35 @@ const EditOrAddOrder = () => {
     const handleInventoryAction = useCallback((item, action, uniqueKey = null) => {
         setTemporaryOrder((prevOrder) => {
             if (action === "add") {
+                // Find the inventory item to check current stock
+                const inventoryItem = inventory.find(i => i.inventory_item_id === item.inventory_item_id);
+                if (!inventoryItem || inventoryItem.quantity <= 0) {
+                    return prevOrder;
+                }
+
+                // Find existing inventory item in order
+                const existingItem = prevOrder.find(
+                    i => i.id === item.inventory_item_id && i.type === 'inventory'
+                );
+
+                if (existingItem) {
+                    // Check if adding another would exceed available quantity
+                    if (existingItem.quantity >= inventoryItem.quantity) {
+                        return prevOrder;
+                    }
+                    // Update quantity of existing item
+                    return prevOrder.map(i =>
+                        i.uniqueKey === existingItem.uniqueKey
+                            ? { ...i, quantity: i.quantity + 1 }
+                            : i
+                    );
+                }
+
+                // Add new inventory item
                 const newItem = {
                     id: item.inventory_item_id,
-                    uniqueKey: `${item.inventory_item_id}-${Date.now()}-${Math.random()}`,
+                    type: 'inventory',
+                    uniqueKey: `${item.inventory_item_id}-${Date.now()}`,
                     name: item.inventory_item_name,
                     price: item.cost_per_unit,
                     quantity: 1,
@@ -83,19 +111,26 @@ const EditOrAddOrder = () => {
                 };
                 return [...prevOrder, newItem];
             } else if (action === "remove") {
-                if (uniqueKey) {
-                    return prevOrder.filter((i) => i.uniqueKey !== uniqueKey);
-                } else {
-                    const itemsOfType = prevOrder.filter((i) => i.id === item.inventory_item_id);
-                    if (itemsOfType.length === 0) return prevOrder;
-                    const lastItem = itemsOfType[itemsOfType.length - 1];
-                    return prevOrder.filter((i) => i.uniqueKey !== lastItem.uniqueKey);
+                const itemToUpdate = prevOrder.find(i =>
+                    i.type === 'inventory' &&
+                    (uniqueKey ? i.uniqueKey === uniqueKey : i.id === item.inventory_item_id)
+                );
+
+                if (!itemToUpdate) return prevOrder;
+
+                if (itemToUpdate.quantity > 1) {
+                    return prevOrder.map(i =>
+                        i.uniqueKey === itemToUpdate.uniqueKey
+                            ? { ...i, quantity: i.quantity - 1 }
+                            : i
+                    );
                 }
+
+                return prevOrder.filter(i => i.uniqueKey !== itemToUpdate.uniqueKey);
             }
             return prevOrder;
         });
-    }, []);
-
+    }, [inventory]);
 
     useEffect(() => {
         if (existingOrder) {
@@ -106,44 +141,41 @@ const EditOrAddOrder = () => {
 
             const initialOrder = orderDetails.flatMap((detail) => {
                 const isInventory = detail.type === "inventory";
-                let itemDetails;
-                const entries = [];
 
-                for (let i = 0; i < detail.quantity; i++) {
-                    if (isInventory) {
-                        itemDetails = inventory?.find(
-                            (inv) => inv.inventory_item_id === detail.inventory_item_id
-                        );
-                        entries.push({
-                            id: detail.inventory_item_id,
-                            uniqueKey: `${detail.inventory_item_id}-${Date.now()}-${i}`,
-                            name: itemDetails?.inventory_item_name || `Unknown item ${detail.inventory_item_id}`,
-                            price: itemDetails?.cost_per_unit || 0,
-                            quantity: 1,
-                            type: 'inventory'
-                        });
-                    } else {
-                        itemDetails = menu?.find(
+                if (isInventory) {
+                    const itemDetails = inventory?.find(
+                        (inv) => inv.inventory_item_id === detail.inventory_item_id
+                    );
+                    return [{
+                        id: detail.inventory_item_id,
+                        uniqueKey: `${detail.inventory_item_id}-${Date.now()}`,
+                        name: itemDetails?.inventory_item_name || `Unknown item ${detail.inventory_item_id}`,
+                        price: itemDetails?.cost_per_unit || 0,
+                        quantity: detail.quantity,
+                        type: 'inventory'
+                    }];
+                } else {
+                    // Handle menu items as before (creating individual entries)
+                    return Array(detail.quantity).fill().map((_, i) => {
+                        const itemDetails = menu?.find(
                             (mi) => mi.menu_item_id === detail.menu_item_id
                         );
-                        entries.push({
+                        return {
                             id: detail.menu_item_id,
                             uniqueKey: `${detail.menu_item_id}-${Date.now()}-${i}`,
                             name: itemDetails?.menu_item_name || `Unknown item ${detail.menu_item_id}`,
                             price: itemDetails?.price || 0,
                             quantity: 1,
                             request: detail.request || "",
-                        });
-                    }
+                        };
+                    });
                 }
-                return entries;
             });
             setTemporaryOrder(initialOrder);
         } else {
             setTemporaryOrder([]);
         }
     }, [order, menu, inventory, existingOrder]);
-
 
     const handleFinishOrder = useCallback(async () => {
         if (!selectedTable || !temporaryOrder.length) return;
@@ -209,29 +241,29 @@ const EditOrAddOrder = () => {
 
     const renderMenuItem = useMemo(
         () =>
-            ({item}) =>
-                (
-                    <MenuItem
-                        key={`menu-item-${item?.menu_item_id}`}
-                        title={item.menu_item_name}
-                        category={item.category}
-                        price={item.price}
-                        image={item.menu_item_image || "/assets/images/favicon.png"}
-                        request={item.request}
-                        currentQuantity={
-                            temporaryOrder.find((o) => o.id === item.menu_item_id && !o.type)
-                                ?.quantity || 0
-                        }
-                        description={item.description}
-                        onChangeQuantity={(action) => handleItemAction(item, action)}
-                    />
-                ),
+            ({ item }) =>
+            (
+                <MenuItem
+                    key={`menu-item-${item?.menu_item_id}`}
+                    title={item.menu_item_name}
+                    category={item.category}
+                    price={item.price}
+                    image={item.menu_item_image || "/assets/images/favicon.png"}
+                    request={item.request}
+                    currentQuantity={
+                        temporaryOrder.filter((o) => o.id === item.menu_item_id && !o.type)
+                            .reduce((total, o) => total + o.quantity, 0) || 0
+                    }
+                    description={item.description}
+                    onChangeQuantity={(action) => handleItemAction(item, action)}
+                />
+            ),
         [temporaryOrder, handleItemAction]
     );
 
     const renderInventoryItem = useMemo(
         () =>
-            ({item}) => (
+            ({ item }) => (
                 <InventoryItem
                     key={`inventory-item-${item.inventory_item_id}`}
                     title={item.inventory_item_name}
@@ -240,21 +272,22 @@ const EditOrAddOrder = () => {
                     currentQuantity={
                         temporaryOrder.find(
                             (o) => o.id === item.inventory_item_id && o.type === 'inventory'
-                        )
+                        )?.quantity || 0
                     }
                     onChangeQuantity={(action) => handleInventoryAction(item, action)}
                     isEditMode={true}
+                    disabled={item.quantity <= 0}
                 />
             ),
         [temporaryOrder, handleInventoryAction]
     );
 
     const menuKeyExtractor = useCallback((item) =>
-            `menu-${item?.menu_item_id || Math.random()}`,
+        `menu-${item?.menu_item_id || Math.random()}`,
         []);
 
     const inventoryKeyExtractor = useCallback((item) =>
-            `inventory-${item?.inventory_item_id || Math.random()}`,
+        `inventory-${item?.inventory_item_id || Math.random()}`,
         []);
 
     const getItemLayout = useCallback(
@@ -302,7 +335,7 @@ const EditOrAddOrder = () => {
                         </View>
                     </View>
 
-                    <View style={{display: activeTab === 'menu' ? 'flex' : 'none', flex: 1}}>
+                    <View style={{ display: activeTab === 'menu' ? 'flex' : 'none', flex: 1 }}>
                         <FlatList
                             key="menuList"
                             data={menu}
@@ -313,7 +346,7 @@ const EditOrAddOrder = () => {
                             maxToRenderPerBatch={6}
                             windowSize={5}
                             numColumns={3}
-                            contentContainerStyle={{padding: 16, paddingBottom: 100}}
+                            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                             columnWrapperStyle={{
                                 justifyContent: "space-between",
                                 marginHorizontal: 16,
@@ -321,7 +354,7 @@ const EditOrAddOrder = () => {
                         />
                     </View>
 
-                    <View style={{display: activeTab === 'inventory' ? 'flex' : 'none', flex: 1}}>
+                    <View style={{ display: activeTab === 'inventory' ? 'flex' : 'none', flex: 1 }}>
                         <FlatList
                             key="inventoryList"
                             data={inventory}
@@ -329,7 +362,7 @@ const EditOrAddOrder = () => {
                             keyExtractor={inventoryKeyExtractor}
                             initialNumToRender={9}
                             maxToRenderPerBatch={6}
-                            contentContainerStyle={{padding: 16, paddingBottom: 100}}
+                            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                         />
                     </View>
                 </View>
@@ -345,18 +378,17 @@ const EditOrAddOrder = () => {
                         {temporaryOrder?.length > 0 ? (
                             <FlatList
                                 data={temporaryOrder}
-                                renderItem={({item}) => (
+                                renderItem={({ item }) => (
                                     <MenuOrderItem
                                         order={item}
-                                        onIncrease={(id) =>
-                                            item.type === 'inventory'
-                                                ? handleInventoryAction({inventory_item_id: id, ...item}, "add")
-                                                : handleItemAction({menu_item_id: id, ...item}, "add")
-                                        }
                                         onDecrease={(id) =>
                                             item.type === 'inventory'
-                                                ? handleInventoryAction({inventory_item_id: id, ...item}, "remove")
-                                                : handleItemAction({menu_item_id: id, ...item}, "remove")
+                                                ? handleInventoryAction({ inventory_item_id: id, ...item }, "remove")
+                                                : handleItemAction({ menu_item_id: id, ...item }, "remove")
+                                        }
+                                        onIncrease={(id) =>
+                                            item.type === 'inventory' &&
+                                            handleInventoryAction({ inventory_item_id: id, ...item }, "add")
                                         }
                                         handleNotesChange={handleNotesChange}
                                     />

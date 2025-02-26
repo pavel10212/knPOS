@@ -1,54 +1,70 @@
-import { TouchableOpacity, Text, View } from 'react-native';
-
-const getStatusStyle = (status) => {
-  switch (status) {
-    case 'Pending':
-      return 'bg-gray-100 border-gray-300';
-    case 'In Progress':
-      return 'bg-yellow-100 border-yellow-300';
-    case 'Ready':
-      return 'bg-green-100 border-green-300';
-    case 'Completed':
-      return 'bg-blue-100 border-blue-300';
-    default:
-      return 'bg-gray-100 border-gray-300';
-  }
-};
-
-const getNextStatus = (currentStatus, itemType) => {
-  if (itemType === 'inventory') {
-    return currentStatus === 'Pending' ? 'Completed' : null;
-  }
-  
-  switch (currentStatus) {
-    case 'Pending':
-      return 'In Progress';
-    case 'In Progress':
-      return 'Ready';
-    case 'Ready':
-      return 'Completed';
-    default:
-      return null;
-  }
-};
+import { TouchableOpacity, Text } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const ItemStatusButton = ({ status, itemType, onPress }) => {
-  const nextStatus = getNextStatus(status, itemType);
-  
-  return (
-    <TouchableOpacity 
-      onPress={nextStatus ? onPress : null}
-      disabled={!nextStatus}
-      className={`px-3 py-1.5 rounded-lg border ${getStatusStyle(status)} flex-row items-center`}
-    >
-      <Text className="text-sm font-medium text-gray-700">{status}</Text>
-      {nextStatus && (
-        <View className="ml-2 w-4 h-4 rounded-full bg-white border border-gray-300 items-center justify-center">
-          <Text className="text-xs">→</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+    const isCompleted = status === 'Completed';
+
+    const getStatusConfig = () => {
+        switch (status) {
+            case 'Completed':
+                return {
+                    bg: 'bg-green-100',
+                    text: 'text-green-700',
+                    icon: 'check-circle',
+                    label: 'Completed'
+                };
+            case 'Ready':
+                return {
+                    bg: 'bg-green-100',
+                    text: 'text-green-700',
+                    icon: 'done',
+                    label: 'Ready'
+                };
+            case 'In Progress':
+                return {
+                    bg: 'bg-yellow-100',
+                    text: 'text-yellow-700',
+                    icon: 'hourglass-top',
+                    label: 'In Progress'
+                };
+            default:
+                return {
+                    bg: 'bg-gray-100',
+                    text: 'text-gray-700',
+                    icon: 'pending',
+                    label: 'Pending'
+                };
+        }
+    };
+
+    const config = getStatusConfig();
+    const nextAction = itemType === 'inventory' 
+        ? 'Mark as Completed'
+        : status === 'Pending'
+            ? 'Start Preparing'
+            : status === 'In Progress'
+                ? 'Mark as Ready'
+                : 'Completed';
+
+    return (
+        <TouchableOpacity
+            onPress={isCompleted ? null : onPress}
+            disabled={isCompleted}
+            className={`flex-row items-center px-3 py-2 rounded-lg ${config.bg} ${
+                isCompleted ? 'opacity-60' : ''
+            }`}
+            activeOpacity={isCompleted ? 1 : 0.7}
+        >
+            <MaterialIcons 
+                name={config.icon} 
+                size={16} 
+                color={isCompleted ? '#059669' : '#6B7280'}
+            />
+            <Text className={`${config.text} font-medium text-sm ml-1`}>
+                {isCompleted ? 'Completed' : nextAction}
+            </Text>
+        </TouchableOpacity>
+    );
 };
 
 export default ItemStatusButton;

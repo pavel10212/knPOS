@@ -65,6 +65,9 @@ const Order = () => {
     };
 
     const handleItemStatusChange = async (orderId, item, newStatus) => {
+        // Prevent updating completed items
+        if (item.status === 'Completed') return;
+
         const currentOrders = useSharedStore.getState().orders || [];
         const order = currentOrders.find(o => o.order_id === orderId);
         if (!order) return;
@@ -113,7 +116,7 @@ const Order = () => {
             return {
                 id: table.table_id,
                 name: `Table ${table.table_num}`,
-                tableNum: table.table_num, // Add this for sorting
+                tableNum: table.table_num,
                 orders: tableOrders.map((order) => ({
                     id: order.order_id,
                     status: order.order_status,
@@ -143,7 +146,7 @@ const Order = () => {
                 }))
             };
         })
-        .sort((a, b) => a.tableNum - b.tableNum); // Sort by table number
+        .sort((a, b) => a.tableNum - b.tableNum);
 
     return (
         <View className="flex-1 bg-[#F3F4F6]">
@@ -168,7 +171,7 @@ const Order = () => {
                 showsHorizontalScrollIndicator={false}
                 snapToAlignment="start"
                 decelerationRate="fast"
-                snapToInterval={300} // Adjust based on your TableOrders width
+                snapToInterval={300}
             />
         </View>
     );

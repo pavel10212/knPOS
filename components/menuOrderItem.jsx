@@ -1,7 +1,7 @@
-import {Text, TouchableOpacity, View, TextInput, Modal} from 'react-native';
-import {useState} from 'react';
+import { Text, TouchableOpacity, View, TextInput, Modal } from 'react-native';
+import { useState } from 'react';
 
-const MenuOrderItem = ({order, onIncrease, onDecrease, handleNotesChange}) => {
+const MenuOrderItem = ({ order, onDecrease, handleNotesChange, onIncrease }) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [noteText, setNoteText] = useState(order.request);
 
@@ -25,41 +25,54 @@ const MenuOrderItem = ({order, onIncrease, onDecrease, handleNotesChange}) => {
                 </View>
 
                 {/* Notes row */}
-                <View className="flex-row items-center mb-3">
-                    <View className="flex-1 bg-gray-50 rounded-lg p-2 mr-2">
-                        <Text
-                            className="text-sm text-gray-600"
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
+                {order.type === 'menu' && (
+                    <View className="flex-row items-center mb-3">
+                        <View className="flex-1 bg-gray-50 rounded-lg p-2 mr-2">
+                            <Text
+                                className="text-sm text-gray-600"
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                            >
+                                {order.request || 'No notes'}
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            className="px-3 py-2 bg-blue-50 rounded-lg"
+                            onPress={() => setIsModalVisible(true)}
                         >
-                            {order.request || 'No notes'}
-                        </Text>
+                            <Text className="text-blue-600 font-medium">Edit</Text>
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        className="px-3 py-2 bg-blue-50 rounded-lg"
-                        onPress={() => setIsModalVisible(true)}
-                    >
-                        <Text className="text-blue-600 font-medium">Edit</Text>
-                    </TouchableOpacity>
-                </View>
+                )}
 
                 {/* Quantity controls */}
                 <View className="flex-row items-center justify-end">
-                    <TouchableOpacity
-                        className="w-8 h-8 bg-red-50 rounded-lg items-center justify-center"
-                        onPress={() => onDecrease(order.id)}
-                    >
-                        <Text className="text-red-600 text-lg font-semibold">-</Text>
-                    </TouchableOpacity>
-                    <Text className="mx-4 font-bold text-lg text-gray-800 w-8 text-center">
-                        {order.quantity}
-                    </Text>
-                    <TouchableOpacity
-                        className="w-8 h-8 bg-green-50 rounded-lg items-center justify-center"
-                        onPress={() => onIncrease(order.id)}
-                    >
-                        <Text className="text-green-600 text-lg font-semibold">+</Text>
-                    </TouchableOpacity>
+                    {order.type === 'inventory' ? (
+                        <>
+                            <TouchableOpacity
+                                className="w-8 h-8 bg-red-50 rounded-lg items-center justify-center"
+                                onPress={() => onDecrease(order.id)}
+                            >
+                                <Text className="text-red-600 text-lg font-semibold">-</Text>
+                            </TouchableOpacity>
+                            <Text className="mx-4 font-bold text-lg text-gray-800 w-8 text-center">
+                                {order.quantity}
+                            </Text>
+                            <TouchableOpacity
+                                className="w-8 h-8 bg-green-50 rounded-lg items-center justify-center"
+                                onPress={() => onIncrease?.(order.id)}
+                            >
+                                <Text className="text-green-600 text-lg font-semibold">+</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <TouchableOpacity
+                            className="px-4 py-2 bg-red-50 rounded-lg items-center justify-center"
+                            onPress={() => onDecrease(order.id)}
+                        >
+                            <Text className="text-red-600 text-base font-semibold">Remove</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </View>
 

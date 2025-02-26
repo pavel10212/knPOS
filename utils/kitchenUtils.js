@@ -29,7 +29,7 @@ export const getInitialCheckedItems = (orders) => {
         if (!Array.isArray(details)) return;
         
         details.forEach((item, index) => {
-            if (item.status === 'Ready') {
+            if (item.status === 'Completed') {
                 checkedItems[`${order.order_id}-${index}`] = true;
             }
         });

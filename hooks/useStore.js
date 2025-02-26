@@ -22,11 +22,11 @@ export const tableStore = create((set, get) => ({
   },
 
   setDropdownTable: (tableNumber) => set({ dropdownTableNumber: tableNumber }),
-    resetTableToken: async (table_num) => {
+  resetTableToken: async (table_num) => {
     try {
       console.log(`Sending PUT request to /table-reset for table ${table_num}`);
-        await tableService.resetTableToken(table_num);
-        console.log(`✅ Table ${table_num} token reset successfully`);
+      await tableService.resetTableToken(table_num);
+      console.log(`✅ Table ${table_num} token reset successfully`);
     } catch (error) {
       console.error("❌ Error resetting table token:", error);
       throw error;
