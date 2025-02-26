@@ -13,9 +13,6 @@ const QRModal = ({ visible, onClose, table_num }) => {
     const qrRef = useRef(null);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
 
-    console.log('QRModal rendered with table_num:', table_num);
-    console.log('QRModal value:', qrValue);
-
     useEffect(() => {
         initializePrinter().catch(err => {
             console.error('Printer initialization failed:', err);
@@ -72,6 +69,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
             setError(null);
             try {
                 const { url } = await qrService.generateToken(table_num);
+                console.log(url, "url");
                 if (!url) throw new Error('Invalid QR code data');
                 setQrValue(url);
                 await updateTableStatus(table_num, "Unavailable");

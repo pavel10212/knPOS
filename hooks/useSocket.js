@@ -103,11 +103,10 @@ export const useSocketStore = create((set, get) => ({
         })
 
         newSocket.on("table-call-waiter", (table_token) => {
-            console.log("Table call waiter: ", table_token);
             const role = loginStore.getState().role;
             const tables = useSharedStore.getState().tables;
 
-            const table_num = tables.find((table) => table.table_token === table_token)?.table_num;
+            const table_num = tables.find((table) => table.token === table_token)?.table_num;
 
             if (role === "waiter") {
                 Toast.show({
