@@ -78,7 +78,7 @@ export const useSocketStore = create((set, get) => ({
       }
     });
 
-    newSocket.on("kitchen-call-waiter", () => {
+    newSocket.on("call-waiter", () => {
       const role = loginStore.getState().role;
 
       if (role === "waiter") {
