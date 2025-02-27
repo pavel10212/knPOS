@@ -32,11 +32,12 @@ const Payment = () => {
     [selectedTable?.table_num, orders]
   );
 
-  // Modify the transformedOrder useMemo
+  // Modify the transformedOrder useMemo to combine identical items
   const transformedOrder = useMemo(() => {
     if (!parsedOrder?.length) return [];
 
-    return parsedOrder.flatMap((order, orderIndex) =>
+    // Create temporaryItems array with all individual items
+    const temporaryItems = parsedOrder.flatMap((order, orderIndex) =>
       order.order_details.map((orderDetail, detailIndex) => {
         // Check if the item is from inventory or menu
         if (orderDetail.type === 'inventory') {
@@ -50,7 +51,9 @@ const Payment = () => {
             quantity: orderDetail.quantity,
             originalOrderId: order.order_id,
             originalInventoryItemId: orderDetail.inventory_item_id,
-            type: 'inventory'
+            type: 'inventory',
+            // This key will be used for grouping
+            groupKey: `inventory-${orderDetail.inventory_item_id}`
           };
         } else {
           const menuItem = menu?.find(
@@ -63,11 +66,38 @@ const Payment = () => {
             quantity: orderDetail.quantity,
             originalOrderId: order.order_id,
             originalMenuItemId: orderDetail.menu_item_id,
-            type: 'menu'
+            type: 'menu',
+            // This key will be used for grouping
+            groupKey: `menu-${orderDetail.menu_item_id}`
           };
         }
       })
     );
+
+    // Group items by groupKey and combine quantities
+    const groupedItems = temporaryItems.reduce((acc, item) => {
+      // If this groupKey doesn't exist yet, create it
+      if (!acc[item.groupKey]) {
+        acc[item.groupKey] = { ...item };
+      } else {
+        // If groupKey exists, add the quantity
+        acc[item.groupKey].quantity += item.quantity;
+        
+        // Store multiple order IDs for reference if they're different
+        if (acc[item.groupKey].originalOrderId !== item.originalOrderId) {
+          if (!acc[item.groupKey].relatedOrderIds) {
+            acc[item.groupKey].relatedOrderIds = [acc[item.groupKey].originalOrderId];
+          }
+          if (!acc[item.groupKey].relatedOrderIds.includes(item.originalOrderId)) {
+            acc[item.groupKey].relatedOrderIds.push(item.originalOrderId);
+          }
+        }
+      }
+      return acc;
+    }, {});
+
+    // Convert the grouped object back to an array
+    return Object.values(groupedItems);
   }, [parsedOrder, menu, inventory]);
 
   const [orderItems, setOrderItems] = useState(transformedOrder || []);
@@ -92,22 +122,16 @@ const Payment = () => {
     const vat = subtotal * 0.1;
     const total = subtotal - discountAmount + vat;
 
-    // Calculate tips only for cash payments when cash received is more than total
-    const calculatedTip = selectedMethod === "cash" && cashReceived > total
-      ? cashReceived - total
-      : 0;
-
     return {
       subtotal,
       serviceCharge: 0,
       discountAmount,
       vat,
       total,
-      tipAmount: calculatedTip,
     };
-  }, [orderItems, discount, cashReceived, selectedMethod]);
+  }, [orderItems, discount]);
 
-  const { subtotal, serviceCharge, discountAmount, vat, total, tipAmount } = calculations;
+  const { subtotal, serviceCharge, discountAmount, vat, total } = calculations;
 
   // Optimize finish payment callback
   const finishPayment = useCallback(async () => {
@@ -122,19 +146,39 @@ const Payment = () => {
     }
 
     try {
+      // Create a map of orderItems for quick lookups
+      const orderItemsMap = orderItems.reduce((acc, item) => {
+        // Handle items with multiple related order IDs
+        const orderIds = item.relatedOrderIds 
+          ? [item.originalOrderId, ...item.relatedOrderIds] 
+          : [item.originalOrderId];
+          
+        orderIds.forEach(orderId => {
+          if (!acc[orderId]) acc[orderId] = [];
+          acc[orderId].push(item);
+        });
+        return acc;
+      }, {});
+
       const updatedOrders = await Promise.all(
         parsedOrder.map(async (order) => {
+          const relevantItems = orderItemsMap[order.order_id] || [];
+          
           const updatedOrderDetails = JSON.stringify(
             order.order_details.map((orderDetail) => {
-              const matchingItem = orderItems.find(
+              // Find matching item either by inventory_item_id or menu_item_id
+              const matchingItem = relevantItems.find(
                 (item) =>
-                  item.originalOrderId === order.order_id &&
-                  ((orderDetail.type === 'inventory' && item.originalInventoryItemId === orderDetail.inventory_item_id) ||
-                    ((!orderDetail.type || orderDetail.type === 'menu') && item.originalMenuItemId === orderDetail.menu_item_id))
+                  (orderDetail.type === 'inventory' && 
+                   item.originalInventoryItemId === orderDetail.inventory_item_id) ||
+                  ((!orderDetail.type || orderDetail.type === 'menu') && 
+                   item.originalMenuItemId === orderDetail.menu_item_id)
               );
+              
+              // If found matching item, use its quantity, otherwise use original quantity
               return {
                 status: "completed",
-                quantity: matchingItem?.quantity || orderDetail.quantity,
+                quantity: orderDetail.quantity,
                 menu_item_id: orderDetail.menu_item_id,
                 inventory_item_id: orderDetail.inventory_item_id,
                 type: orderDetail.type || 'menu'
@@ -143,8 +187,7 @@ const Payment = () => {
           );
 
           return await updateOrderWithPayment(order.order_id, updatedOrderDetails, {
-            total: calculations.total,
-            tipAmount
+            total: calculations.total
           });
         })
       );
@@ -183,8 +226,7 @@ const Payment = () => {
         vat,
         total,
         method: selectedMethod,
-        cashReceived,
-        tipAmount
+        cashReceived
       };
 
       await printReceipt(orderDetails, paymentDetails);
@@ -381,18 +423,8 @@ const Payment = () => {
                     </Text>
                   </View>
                 )}
-
-                {selectedMethod === "cash" && cashReceived > total && (
-                  <View className="mt-2">
-                    <View className="flex flex-row justify-between pt-1 border-t border-dashed">
-                      <Text className="font-bold text-green-500">Tips</Text>
-                      <Text className="font-bold text-green-500">
-                        ${(cashReceived - total).toFixed(2)}
-                      </Text>
-                    </View>
-                  </View>
-                )}
               </View>
+
             </View>
           </View>
 

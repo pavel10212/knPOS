@@ -24,6 +24,8 @@ const EditOrAddOrder = () => {
     const orders = useSharedStore((state) => state.orders);
     const [activeTab, setActiveTab] = useState('menu');
 
+    console.log(temporaryOrder, "temporaryOrder");
+
     const inventory = useSharedStore((state) => state.inventory);
 
     const handleNotesChange = useCallback((uniqueKey, newNotes) => {
@@ -150,7 +152,7 @@ const EditOrAddOrder = () => {
                     );
                     return [{
                         id: detail.inventory_item_id,
-                        uniqueKey: `${detail.inventory_item_id}-${Date.now()}`,
+                        uniqueKey: detail.cartItemId,
                         name: itemDetails?.inventory_item_name || `Unknown item ${detail.inventory_item_id}`,
                         price: itemDetails?.cost_per_unit || 0,
                         quantity: detail.quantity,
@@ -164,11 +166,12 @@ const EditOrAddOrder = () => {
                         );
                         return {
                             id: detail.menu_item_id,
-                            uniqueKey: `${detail.menu_item_id}-${Date.now()}-${i}`,
+                            uniqueKey: detail.cartItemId,
                             name: itemDetails?.menu_item_name || `Unknown item ${detail.menu_item_id}`,
                             price: itemDetails?.price || 0,
                             quantity: 1,
                             request: detail.request || "",
+                            type: 'menu'
                         };
                     });
                 }
@@ -217,12 +220,12 @@ const EditOrAddOrder = () => {
                     order_details: orderDetails.order_details,
                 })
                 : orderService.createOrder(orderDetails));
-                
+
             // Safe access of order_id with proper error handling
-            const newOrderId = Array.isArray(savedOrder) && savedOrder.length > 0 ? 
-                savedOrder[0].order_id : 
+            const newOrderId = Array.isArray(savedOrder) && savedOrder.length > 0 ?
+                savedOrder[0].order_id :
                 (savedOrder && savedOrder.order_id ? savedOrder.order_id : parseInt(order, 10));
-            
+
             // Emit socket events to notify other clients
             if (isEditMode) {
                 useSocketStore.getState().emitLocalOrderUpdated(parseInt(order, 10));
@@ -250,8 +253,8 @@ const EditOrAddOrder = () => {
             Toast.show({
                 type: "success",
                 text1: isEditMode ? "Order Updated" : "Order Created",
-                text2: isEditMode ? 
-                    `Order #${newOrderId} has been updated` : 
+                text2: isEditMode ?
+                    `Order #${newOrderId} has been updated` :
                     `Order #${newOrderId} has been created`,
             });
 
