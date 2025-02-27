@@ -32,7 +32,6 @@ const EditOrAddOrder = () => {
                 item.uniqueKey === uniqueKey ? { ...item, request: newNotes } : item
             )
         );
-        console.log(newNotes, "newNotes");
     }, []);
 
     const existingOrder = useMemo(() => {
