@@ -24,8 +24,6 @@ const EditOrAddOrder = () => {
     const orders = useSharedStore((state) => state.orders);
     const [activeTab, setActiveTab] = useState('menu');
 
-    console.log(temporaryOrder, "temporaryOrder");
-
     const inventory = useSharedStore((state) => state.inventory);
 
     const handleNotesChange = useCallback((uniqueKey, newNotes) => {
@@ -34,6 +32,7 @@ const EditOrAddOrder = () => {
                 item.uniqueKey === uniqueKey ? { ...item, request: newNotes } : item
             )
         );
+        console.log(newNotes, "newNotes");
     }, []);
 
     const existingOrder = useMemo(() => {
@@ -406,6 +405,7 @@ const EditOrAddOrder = () => {
                         {temporaryOrder?.length > 0 ? (
                             <FlatList
                                 data={temporaryOrder}
+                                removeClippedSubviews={false}
                                 renderItem={({ item }) => (
                                     <MenuOrderItem
                                         order={item}
