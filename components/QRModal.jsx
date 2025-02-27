@@ -69,7 +69,6 @@ const QRModal = ({ visible, onClose, table_num }) => {
             setError(null);
             try {
                 const { url } = await qrService.generateToken(table_num);
-                console.log(url, "url");
                 if (!url) throw new Error('Invalid QR code data');
                 setQrValue(url);
                 await updateTableStatus(table_num, "Unavailable");

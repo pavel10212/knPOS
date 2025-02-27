@@ -1,61 +1,47 @@
-export const parseOrderDetails = (details) => {
-  if (!details) return [];
+export const parseOrderDetails = (orderDetails) => {
   try {
-    return typeof details === "string" ? JSON.parse(details) : details;
+    return typeof orderDetails === 'string'
+      ? JSON.parse(orderDetails)
+      : Array.isArray(orderDetails)
+        ? orderDetails
+        : [];
   } catch (error) {
-    console.error("Error parsing order details:", error);
+    console.error('Failed to parse order details:', error);
     return [];
   }
 };
 
-export const createMenuItemsMap = (menu) => {
-  if (!menu?.length) return {};
-  return menu.reduce((acc, item) => {
-    acc[item.menu_item_id] = item;
-    return acc;
+export const createMenuItemsMap = (menuItems) => {
+  return (menuItems || []).reduce((map, item) => {
+    map[item.menu_item_id] = item;
+    return map;
   }, {});
 };
 
 export const getInitialCheckedItems = (orders) => {
-  if (!orders?.length) return {};
-
-  const checkedItems = {};
-  const flatOrders = orders.flat();
-
-  flatOrders.forEach((order) => {
-    if (!order?.order_details) return;
-
+  const checkedState = {};
+  orders.forEach(order => {
+    if (!order || !order.order_details) return;
+    
     const details = parseOrderDetails(order.order_details);
-    if (!Array.isArray(details)) return;
-
-    details.forEach((item, index) => {
-      if (item.type === "inventory") return;
-      if (item.status === "Completed") {
-        checkedItems[`${order.order_id}-${index}`] = true;
+    details.forEach(item => {
+      const cartItemId = item.cartItemId || item.cartItemID;
+      if (cartItemId) {
+        checkedState[`${order.order_id}-${cartItemId}`] = item.status === 'Completed';
       }
     });
   });
-
-  return checkedItems;
+  return checkedState;
 };
 
 export const deduplicateOrders = (orders) => {
-  if (!orders?.length) return [];
-
-  const flatOrders = Array.isArray(orders) ? orders.flat() : orders;
-  const orderMap = new Map();
-
-  flatOrders.forEach((order) => {
-    if (!order?.order_id) return;
-    // Keep the most recent version of duplicate orders
-    if (
-      !orderMap.has(order.order_id) ||
-      new Date(order.order_date_time) >
-        new Date(orderMap.get(order.order_id).order_date_time)
-    ) {
-      orderMap.set(order.order_id, order);
+  if (!orders) return [];
+  // Use a Map to track unique order IDs
+  const uniqueOrdersMap = new Map();
+  orders.forEach(order => {
+    if (order && !uniqueOrdersMap.has(order.order_id)) {
+      uniqueOrdersMap.set(order.order_id, order);
     }
   });
-
-  return Array.from(orderMap.values());
+  return Array.from(uniqueOrdersMap.values());
 };

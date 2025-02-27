@@ -1,19 +1,19 @@
-import {Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal} from 'react-native'
-import React, {useState} from 'react'
-import {useSharedStore} from '../hooks/useSharedStore';
-import {tableStore} from '../hooks/useStore';
-import {updateOrderStatus} from '../services/orderService';
+import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal } from 'react-native'
+import React, { useState } from 'react'
+import { useSharedStore } from '../hooks/useSharedStore';
+import { tableStore } from '../hooks/useStore';
+import { updateOrderStatus } from '../services/orderService';
 
 const TableComponent = ({
-                            table_num,
-                            capacity,
-                            status,
-                            reservation_details,
-                            location,
-                            rotation,
-                            token,
-                            onReserve
-                        }) => {
+    table_num,
+    capacity,
+    status,
+    reservation_details,
+    location,
+    rotation,
+    token,
+    onReserve
+}) => {
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = 30;
     const OFFSET_Y = 15;
@@ -39,18 +39,18 @@ const TableComponent = ({
     }
 
     const handleStatusChange = async (newStatus) => {
-        if (newStatus === 'reserved') {
+        if (newStatus === 'Reserved') {
             setDropdownTable(null);
             onReserve(table_num);
             return;
         }
         try {
-            if (newStatus === 'available' && ordersForTable.length > 0) {
+            if (newStatus === 'Available' && ordersForTable.length > 0) {
                 setShowConfirmModal(true);
                 return;
             }
-            
-            if (newStatus === 'available') {
+
+            if (newStatus === 'Available') {
                 await resetTableToken(table_num);
             } else {
                 const success = await updateTableStatus(table_num, newStatus);
@@ -70,7 +70,7 @@ const TableComponent = ({
                     const updatedOrderDetails = JSON.stringify(
                         order.order_details.map((detail) => ({
                             ...detail,
-                            status: "completed"
+                            status: "Completed"
                         }))
                     );
 
@@ -149,7 +149,7 @@ const TableComponent = ({
     };
 
     const getCounterRotation = () => ({
-        transform: [{rotate: `${-(rotation || 0)}deg`}]
+        transform: [{ rotate: `${-(rotation || 0)}deg` }]
     });
 
     const handleOutsideClick = () => {
@@ -169,16 +169,16 @@ const TableComponent = ({
             handleOutsideClick();
             return;
         }
-        selectTable({table_num, orders, capacity, status, reservation_details, token});
+        selectTable({ table_num, orders, capacity, status, reservation_details, token });
     };
 
     return (
-        <View style={{position: 'relative'}}>
+        <View style={{ position: 'relative' }}>
             {/* Table Container */}
             <View style={{
                 position: 'absolute',
                 ...getBasePosition(),
-                transform: [{rotate: `${rotation || 0}deg`}],
+                transform: [{ rotate: `${rotation || 0}deg` }],
                 zIndex: 1
             }}>
                 <TouchableOpacity
@@ -210,7 +210,7 @@ const TableComponent = ({
                         right: 0,
                         bottom: 0,
                         zIndex: 998
-                    }}/>
+                    }} />
                 </TouchableWithoutFeedback>
             )}
 
@@ -226,13 +226,13 @@ const TableComponent = ({
                     width: 160,
                     zIndex: 999
                 }}>
-                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('available')}>
+                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Available')}>
                         <Text>Available</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('reserved')}>
+                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Reserved')}>
                         <Text>Reserved</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('unavailable')}>
+                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Unavailable')}>
                         <Text>Unavailable</Text>
                     </TouchableOpacity>
                 </View>

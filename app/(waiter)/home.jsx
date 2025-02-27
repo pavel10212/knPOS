@@ -22,7 +22,7 @@ const Home = () => {
   const setReservationModal = tableStore((state) => state.setReservationModal);
   const orders = useSharedStore((state) => state.orders);
   const [ordersForRender, setOrdersForRender] = useState([]);
-
+  
   useEffect(() => {
     if (selectedTable) {
       setOrdersForRender(findOrdersForTable(selectedTable.table_num, orders));

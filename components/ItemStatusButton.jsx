@@ -38,26 +38,20 @@ const ItemStatusButton = ({ status, itemType, onPress }) => {
     };
 
     const config = getStatusConfig();
-    const nextAction = itemType === 'inventory' 
-        ? 'Mark as Completed'
-        : status === 'Pending'
-            ? 'Start Preparing'
-            : status === 'In Progress'
-                ? 'Mark as Ready'
-                : 'Completed';
+    // Always set next action to "Mark as Completed"
+    const nextAction = 'Mark as Completed';
 
     return (
         <TouchableOpacity
             onPress={isCompleted ? null : onPress}
             disabled={isCompleted}
-            className={`flex-row items-center px-3 py-2 rounded-lg ${config.bg} ${
-                isCompleted ? 'opacity-60' : ''
-            }`}
+            className={`flex-row items-center px-3 py-2 rounded-lg ${config.bg} ${isCompleted ? 'opacity-60' : ''
+                }`}
             activeOpacity={isCompleted ? 1 : 0.7}
         >
-            <MaterialIcons 
-                name={config.icon} 
-                size={16} 
+            <MaterialIcons
+                name={config.icon}
+                size={16}
                 color={isCompleted ? '#059669' : '#6B7280'}
             />
             <Text className={`${config.text} font-medium text-sm ml-1`}>

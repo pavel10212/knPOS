@@ -1,4 +1,5 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import Toast from "react-native-toast-message";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MenuItem from "../../components/MenuItem";
 import { useLocalSearchParams, router } from "expo-router";
@@ -10,6 +11,7 @@ import { useSocketStore } from "../../hooks/useSocket";
 import MenuOrderItem from "../../components/menuOrderItem";
 import InventoryItem from "../../components/InventoryItem";
 import { orderService } from '../../services/orderService';
+import { qrService } from '../../services/qrService';
 
 const EditOrAddOrder = () => {
     const { order } = useLocalSearchParams();
@@ -183,6 +185,7 @@ const EditOrAddOrder = () => {
         try {
             // Check if table is Available and update status
             if (!isEditMode && selectedTable.status === "Available") {
+                await qrService.generateToken(selectedTable.table_num);
                 await updateTableStatus(selectedTable.table_num, "Unavailable");
             }
 
@@ -197,6 +200,7 @@ const EditOrAddOrder = () => {
                     temporaryOrder.map((item) => ({
                         [item.type === 'inventory' ? 'inventory_item_id' : 'menu_item_id']: item.id,
                         type: item.type || 'menu',
+                        cartItemId: Math.random().toString(36).substring(2, 9),
                         status: "pending",
                         quantity: item.quantity,
                         request: item.request || "",
@@ -204,10 +208,7 @@ const EditOrAddOrder = () => {
                 ),
             };
 
-            // If editing, ensure update tracking is set before the API call
-            if (isEditMode) {
-                await useSocketStore.getState().trackUpdatedOrder(parseInt(order, 10));
-            }
+            // Store the result of the API call
             const savedOrder = await (isEditMode
                 ? orderService.updateOrder(order, {
                     order_status: "Pending",
@@ -216,28 +217,53 @@ const EditOrAddOrder = () => {
                     order_details: orderDetails.order_details,
                 })
                 : orderService.createOrder(orderDetails));
-
-            // For new orders, ensure tracking is set before updating state
-            if (!isEditMode) {
-                await useSocketStore.getState().trackProcessedOrder(savedOrder.order_id);
+                
+            // Safe access of order_id with proper error handling
+            const newOrderId = Array.isArray(savedOrder) && savedOrder.length > 0 ? 
+                savedOrder[0].order_id : 
+                (savedOrder && savedOrder.order_id ? savedOrder.order_id : parseInt(order, 10));
+            
+            // Emit socket events to notify other clients
+            if (isEditMode) {
+                useSocketStore.getState().emitLocalOrderUpdated(parseInt(order, 10));
+            } else if (newOrderId) {
+                useSocketStore.getState().emitLocalOrderProcessed(newOrderId);
             }
 
-            // Short delay to ensure tracking is propagated
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Update state
-            const updatedOrders = isEditMode
-                ? orders.map(o => o.order_id === savedOrder.order_id ? savedOrder : o)
-                : [...orders, savedOrder];
+            // Update local state
+            let updatedOrders;
+            if (isEditMode) {
+                // For update, handle both array or single object response
+                const updatedOrder = Array.isArray(savedOrder) ? savedOrder[0] : savedOrder;
+                updatedOrders = orders.map(o => o.order_id === newOrderId ? updatedOrder : o);
+            } else {
+                // For create, add the new order to the list
+                const newOrder = Array.isArray(savedOrder) ? savedOrder[0] : savedOrder;
+                updatedOrders = [...orders, newOrder];
+            }
 
             setOrders(updatedOrders);
             useInventoryStore.getState().fetchInventory();
             setTemporaryOrder([]);
             router.push("home");
+
+            Toast.show({
+                type: "success",
+                text1: isEditMode ? "Order Updated" : "Order Created",
+                text2: isEditMode ? 
+                    `Order #${newOrderId} has been updated` : 
+                    `Order #${newOrderId} has been created`,
+            });
+
         } catch (error) {
-            console.error("Error handling order:", error.message);
+            console.error("Error handling order:", error);
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: `Failed to ${isEditMode ? 'update' : 'create'} order. Please try again.`,
+            });
         }
-    }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders]);
+    }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders, orders]);
 
     const renderMenuItem = useMemo(
         () =>
@@ -246,14 +272,13 @@ const EditOrAddOrder = () => {
                 <MenuItem
                     key={`menu-item-${item?.menu_item_id}`}
                     title={item.menu_item_name}
-                    category={item.category}
                     price={item.price}
                     image={item.menu_item_image || "/assets/images/favicon.png"}
                     request={item.request}
                     currentQuantity={
-                        temporaryOrder.filter((o) => o.id === item.menu_item_id && !o.type)
-                            .reduce((total, o) => total + o.quantity, 0) || 0
+                        temporaryOrder.filter((o) => o.id === item.menu_item_id).length || 0
                     }
+
                     description={item.description}
                     onChangeQuantity={(action) => handleItemAction(item, action)}
                 />
@@ -330,7 +355,7 @@ const EditOrAddOrder = () => {
                                 className={`px-4 py-2 rounded-t-lg ${activeTab === 'inventory' ? 'bg-primary' : 'bg-gray-200'}`}
                             >
                                 <Text
-                                    className={activeTab === 'inventory' ? 'text-white font-bold' : 'text-gray-600'}>Inventory</Text>
+                                    className={activeTab === 'inventory' ? 'text-white font-bold' : 'text-gray-600'}>Beverages</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -381,6 +406,7 @@ const EditOrAddOrder = () => {
                                 renderItem={({ item }) => (
                                     <MenuOrderItem
                                         order={item}
+                                        quantity={item.quantity}
                                         onDecrease={(id) =>
                                             item.type === 'inventory'
                                                 ? handleInventoryAction({ inventory_item_id: id, ...item }, "remove")

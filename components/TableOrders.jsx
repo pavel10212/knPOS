@@ -7,6 +7,7 @@ const TableOrders = ({ table, onItemStatusChange, onOrderDelivery }) => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'Ready': return 'bg-green-100';
+            case 'Completed': return 'bg-gray-100';
             case 'In Progress': return 'bg-yellow-100';
             default: return 'bg-gray-100';
         }
@@ -16,6 +17,7 @@ const TableOrders = ({ table, onItemStatusChange, onOrderDelivery }) => {
         switch (status) {
             case 'Ready': return 'text-green-700';
             case 'In Progress': return 'text-yellow-700';
+            case 'Completed': return 'text-gray-500';
             default: return 'text-gray-700';
         }
     };
@@ -77,23 +79,17 @@ const TableOrders = ({ table, onItemStatusChange, onOrderDelivery }) => {
                                         status={item.status}
                                         itemType={item.type}
                                         onPress={() => {
-                                            const nextStatus = item.type === 'inventory'
-                                                ? 'Completed'
-                                                : item.status === 'Pending'
-                                                    ? 'In Progress'
-                                                    : item.status === 'In Progress'
-                                                        ? 'Ready'
-                                                        : 'Completed';
-                                            onItemStatusChange(order.id, item, nextStatus);
+                                            // Always set to "Completed" regardless of current status
+                                            onItemStatusChange(order.id, item, 'Completed');
                                         }}
                                     />
                                 </View>
                             </View>
                         ))}
 
-                        {order.status !== 'Ready' && (
+                        {order.status !== 'Ready' && order.status !== 'Completed' && (
                             <TouchableOpacity
-                                onPress={() => onOrderDelivery(order.id)}
+                                onPress={() => onOrderDelivery(order.id, 'Ready')}
                                 className="mt-4 py-3 bg-blue-500 rounded-lg items-center flex-row justify-center"
                                 activeOpacity={0.7}
                             >

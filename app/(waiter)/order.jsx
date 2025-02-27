@@ -21,22 +21,6 @@ const Order = () => {
     };
 
     const handleOrderDelivery = async (orderId) => {
-        const foundOrder = orders.find(o => o.order_id === orderId);
-        const orderDetails = typeof foundOrder.order_details === 'string'
-            ? JSON.parse(foundOrder.order_details)
-            : foundOrder.order_details;
-
-        // Check if all items are completed
-        const allItemsCompleted = orderDetails.every(item => item.status === 'Completed');
-
-        if (!allItemsCompleted) {
-            Alert.alert(
-                'Cannot Mark as Ready',
-                'All items must be completed before marking the order as ready.'
-            );
-            return;
-        }
-
         setConfirmModal({ visible: true, orderId });
     };
 
@@ -54,18 +38,17 @@ const Order = () => {
                 status: 'Completed'
             }));
 
-            const updatedOrder = await updateOrderDelivery(foundOrder, updatedOrderDetails);
+            const updatedOrder = await updateOrderDelivery(foundOrder, updatedOrderDetails, 'Completed');
             updateOrderInStore(orderId, updatedOrder);
         } catch (error) {
             console.error('Delivery error:', error);
-            Alert.alert('Error', 'Failed to mark order as ready');
+            Alert.alert('Error', 'Failed to mark order as completed');
         } finally {
             setConfirmModal({ visible: false, orderId: null });
         }
     };
 
     const handleItemStatusChange = async (orderId, item, newStatus) => {
-        // Prevent updating completed items
         if (item.status === 'Completed') return;
 
         const currentOrders = useSharedStore.getState().orders || [];
@@ -76,12 +59,14 @@ const Order = () => {
             ? JSON.parse(order.order_details)
             : [...order.order_details];
 
-        const updatedOrderDetails = orderDetails.map(detail => {
-            const isMatch = item.type === 'inventory'
-                ? detail.inventory_item_id === item.originalInventoryItemId
-                : detail.menu_item_id === item.originalMenuItemId;
 
-            if (isMatch) return { ...detail, status: newStatus };
+        const updatedOrderDetails = orderDetails.map(detail => {
+            const detailCartItemId = detail.cartItemId || detail.cartItemID;
+            const itemCartItemId = item.cartItemId || item.cartItemID;
+
+            if (detailCartItemId === itemCartItemId) {
+                return { ...detail, status: newStatus };
+            }
             return detail;
         });
 
@@ -110,7 +95,8 @@ const Order = () => {
                     const now = new Date();
                     return orderDate.getFullYear() === now.getFullYear() &&
                         orderDate.getMonth() === now.getMonth() &&
-                        orderDate.getDate() === now.getDate();
+                        orderDate.getDate() === now.getDate() &&
+                        order.table_token === table.token
                 });
 
             return {
@@ -130,6 +116,7 @@ const Order = () => {
                                     name: inventoryItem?.inventory_item_name || "Unknown Item",
                                     type: 'inventory',
                                     originalInventoryItemId: item.inventory_item_id,
+                                    cartItemId: item.cartItemId,
                                     quantity: item.quantity,
                                     status: item.status
                                 };
@@ -139,6 +126,7 @@ const Order = () => {
                                 name: menuItem?.menu_item_name || "Unknown Item",
                                 type: 'menu',
                                 originalMenuItemId: item.menu_item_id,
+                                cartItemId: item.cartItemId,
                                 quantity: item.quantity,
                                 status: item.status
                             };
@@ -154,8 +142,8 @@ const Order = () => {
                 visible={confirmModal.visible}
                 onConfirm={confirmOrderDelivery}
                 onCancel={() => setConfirmModal({ visible: false, orderId: null })}
-                title="Mark Order as Ready"
-                message="Are you sure all items are prepared and ready to be served?"
+                title="Mark Order as Completed"
+                message="Are you sure you want to complete this order?"
             />
             <FlatList
                 horizontal
