@@ -241,9 +241,12 @@ const KitchenHome = () => {
                 return item;
             });
 
+            const isOrderPending = currentOrder.order_status === 'Pending';
+
             const success = await updateOrder(orderId, {
                 ...currentOrder,
                 order_details: JSON.stringify(updatedOrderDetails),
+                order_status: isOrderPending ? 'In Progress' : currentOrder.order_status,
             });
 
             if (!success) throw new Error('Failed to update order');
