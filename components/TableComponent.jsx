@@ -39,9 +39,6 @@ const TableComponent = ({
         });
     }, [orders, table_num]);
 
-    console.log(orders, "All orders")
-    console.log(table_num, "The table number")
-    console.log(ordersForTable, "The orders for this table")
 
     const ifLongPressed = () => {
         setIsReservationVisible(false);
@@ -49,7 +46,6 @@ const TableComponent = ({
     }
 
     const handleStatusChange = async (newStatus) => {
-        console.log('newStatus', newStatus)
         if (newStatus === 'Reserved') {
             setDropdownTable(null);
             onReserve(table_num);
