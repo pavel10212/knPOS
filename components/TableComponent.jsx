@@ -1,5 +1,5 @@
 import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useSharedStore } from '../hooks/useSharedStore';
 import { tableStore } from '../hooks/useStore';
 import { updateOrderStatus } from '../services/orderService';
@@ -30,8 +30,18 @@ const TableComponent = ({
     const [isReservationVisible, setIsReservationVisible] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-    const ordersForTable = orders.filter((order) => order.table_num === table_num && order.order_status !== 'Completed');
+    // Updated useMemo to handle both string and number table numbers
+    const ordersForTable = useMemo(() => {
+        return orders.filter((order) => {
+            // Convert both to strings for comparison to handle mixed types
+            return String(order.table_num) === String(table_num) && 
+                   order.order_status !== 'Completed';
+        });
+    }, [orders, table_num]);
 
+    console.log(orders, "All orders")
+    console.log(table_num, "The table number")
+    console.log(ordersForTable, "The orders for this table")
 
     const ifLongPressed = () => {
         setIsReservationVisible(false);
@@ -39,6 +49,7 @@ const TableComponent = ({
     }
 
     const handleStatusChange = async (newStatus) => {
+        console.log('newStatus', newStatus)
         if (newStatus === 'Reserved') {
             setDropdownTable(null);
             onReserve(table_num);
@@ -49,6 +60,8 @@ const TableComponent = ({
                 setShowConfirmModal(true);
                 return;
             }
+
+            console.log(ordersForTable.length, "The length of the orders for this table")
 
             if (newStatus === 'Available') {
                 await resetTableToken(table_num);

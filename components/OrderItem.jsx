@@ -21,36 +21,66 @@ const OrderItem = ({ order }) => {
     });
   }, [order.order_id]);
 
-  const orderItems = useMemo(
-    () =>
-      order.items?.map((item) => {
-        if (!item) return null;
+  // Parse order details safely
+  const parseOrderDetails = useCallback((orderDetails) => {
+    if (!orderDetails) return [];
+    
+    try {
+      if (typeof orderDetails === 'string') {
+        return JSON.parse(orderDetails);
+      }
+      return Array.isArray(orderDetails) ? orderDetails : [];
+    } catch (error) {
+      console.error('Failed to parse order details:', error);
+      return [];
+    }
+  }, []);
 
-        const isInventory = item.type === "inventory";
-        let itemDetails = null;
+  // Get order items with proper error handling
+  const orderItems = useMemo(() => {
+    // First, safely get the order details
+    const orderDetails = parseOrderDetails(order.order_details);
+    
+    // If we don't have valid order details, return empty array
+    if (!orderDetails || !Array.isArray(orderDetails)) {
+      return [];
+    }
+    
+    return orderDetails.map((item) => {
+      if (!item) return null;
 
-        if (isInventory) {
-          itemDetails = inventory?.find(
-            (inv) => inv?.inventory_item_id === item.inventory_item_id
-          );
-        } else {
-          itemDetails = menu?.find(
-            (menuItem) => menuItem?.menu_item_id === item.menu_item_id
-          );
-        }
+      const isInventory = item.type === "inventory";
+      let itemDetails = null;
 
-        if (!itemDetails) return null;
+      if (isInventory) {
+        itemDetails = inventory?.find(
+          (inv) => inv?.inventory_item_id === item.inventory_item_id
+        );
+      } else {
+        itemDetails = menu?.find(
+          (menuItem) => menuItem?.menu_item_id === item.menu_item_id
+        );
+      }
 
-        return {
-          id: isInventory ? itemDetails.inventory_item_id : itemDetails.menu_item_id,
-          name: isInventory ? itemDetails.inventory_item_name : itemDetails.menu_item_name,
-          quantity: item.quantity || 0,
-          price: isInventory ? itemDetails.cost_per_unit : itemDetails.price,
-          request: isInventory ? null : (item.request || ''),
-        };
-      }).filter(Boolean), // Remove any null items
-    [order.items, menu, inventory]
-  );
+      if (!itemDetails) return null;
+
+      return {
+        id: isInventory ? itemDetails.inventory_item_id : itemDetails.menu_item_id,
+        name: isInventory ? itemDetails.inventory_item_name : itemDetails.menu_item_name,
+        quantity: item.quantity || 0,
+        price: isInventory ? itemDetails.cost_per_unit : itemDetails.price,
+        request: isInventory ? null : (item.request || ''),
+      };
+    }).filter(Boolean);
+  }, [order, menu, inventory, parseOrderDetails]);
+
+  // Format the total amount with proper currency symbol
+  const formattedTotal = useMemo(() => {
+    if (typeof order.total_amount === 'number') {
+      return `$${order.total_amount.toFixed(2)}`;
+    }
+    return order.total || '$0.00';
+  }, [order.total_amount, order.total]);
 
   return (
     <View className="rounded-xl bg-[#e7edf7] shadow-md mb-4 p-4">
@@ -68,7 +98,7 @@ const OrderItem = ({ order }) => {
 
       {isExpanded && (
         <View className="mt-4">
-          {orderItems?.length > 0 ? (
+          {orderItems.length > 0 ? (
             orderItems.map((item, index) => (
               <View
                 key={`${item.id}-${index}`}
@@ -93,7 +123,7 @@ const OrderItem = ({ order }) => {
           )}
           <View className="py-4 border-t flex flex-row justify-between border-gray-200">
             <Text className="font-bold text-right text-lg">
-              Total: {order.total || '$0.00'}
+              Total: {formattedTotal}
             </Text>
           </View>
         </View>
