@@ -26,7 +26,7 @@ const TabIcon = ({ icon, color, name, focused }) => {
 
 export default function TabsLayout() {
   const pathname = usePathname();
-  const isTabScreen = ["home", "menu", "order", "settings"].some((path) =>
+  const isTabScreen = ["home", "menu", "order", "reservation", "settings"].some((path) =>
     pathname.includes(path)
   );
   const setRole = loginStore((state) => state.setRole);
@@ -89,6 +89,15 @@ export default function TabsLayout() {
             title: "Order",
             tabBarIcon: ({ focused, color }) => (
               <TabIcon icon={icons.order} focused={focused} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="reservation"
+          options={{
+            title: "Reserve",
+            tabBarIcon: ({ focused, color }) => (
+              <TabIcon icon={icons.reserved} focused={focused} color={color} />
             ),
           }}
         />

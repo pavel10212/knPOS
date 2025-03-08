@@ -14,6 +14,7 @@ import trash from "../assets/icons/trash.png";
 import minus from "../assets/icons/minus.png";
 import dropdown from "../assets/icons/dropdown.png";
 import logout from "../assets/icons/logout.png";
+import reserved from "../assets/icons/reserved.png";
 
 export default {
   menu,
@@ -31,5 +32,6 @@ export default {
   trash,
   minus,
   dropdown,
-  logout
+  logout,
+  reserved,
 };
