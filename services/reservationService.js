@@ -124,4 +124,53 @@ export const reservationService = {
       throw error;
     }
   },
+
+  async checkTableAvailability(
+    tableId,
+    startTime,
+    endTime,
+    excludeReservationId = null
+  ) {
+    try {
+      console.log("Checking table availability...");
+      const response = await fetch(
+        `${API_URL}/reservations/availability?tableId=${tableId}&startTime=${startTime}&endTime=${endTime}${
+          excludeReservationId
+            ? `&excludeReservationId=${excludeReservationId}`
+            : ""
+        }`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.EXPO_PUBLIC_ADMIN_API_KEY}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to check table availability");
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error checking table availability:", error);
+      throw error;
+    }
+  },
+
+  async fetchUpcomingReservations() {
+    console.log("Fetching upcoming reservations...");
+    try {
+      const response = await fetch(`${API_URL}/reservations/upcoming`, {
+        headers: {
+          Authorization: `Bearer ${process.env.EXPO_PUBLIC_ADMIN_API_KEY}`,
+        },
+      });
+      if (!response.ok)
+        throw new Error("Failed to fetch upcoming reservations");
+      return response.json();
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  },
 };
