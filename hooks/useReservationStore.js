@@ -340,12 +340,7 @@ export const useReservationStore = create((set, get) => ({
     // Convert times to Date objects for comparison
     const requestStart = new Date(startTime);
     const requestEnd = endTime ? new Date(endTime) : 
-                      new Date(requestStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
-    
-    // Apply buffer time to check window
-    const bufferMs = bufferMinutes * 60 * 1000;
-    const requestStartWithBuffer = new Date(requestStart.getTime() - bufferMs);
-    const requestEndWithBuffer = new Date(requestEnd.getTime() + bufferMs);
+                      new Date(requestStart.getTime() + 2 * 60 * 60 * 1000);
     
     // Find any conflicting reservations
     const conflictingReservations = upcomingReservations.filter(reservation => {
@@ -361,14 +356,24 @@ export const useReservationStore = create((set, get) => ({
         if (reservation.status === "canceled") 
             return false;
         
-        // Get reservation time range
+        // Get reservation time range WITH buffer
         const resStart = new Date(reservation.reservation_time);
         const resEnd = reservation.end_time ? new Date(reservation.end_time) : 
-                       new Date(resStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+                       new Date(resStart.getTime() + 2 * 60 * 60 * 1000);
         
-        // Check for time overlap with buffer
-        // Reservations overlap if one doesn't end before the other starts
-        return !(resEnd <= requestStartWithBuffer || resStart >= requestEndWithBuffer);
+        // Add buffer to EXISTING reservation
+        const bufferMs = bufferMinutes * 60 * 1000;
+        const existingStartWithBuffer = new Date(resStart.getTime() - bufferMs);
+        const existingEndWithBuffer = new Date(resEnd.getTime() + bufferMs);
+        
+        // For debugging
+        console.log(`Comparing reservation at ${requestStart.toLocaleTimeString()} with existing at ${resStart.toLocaleTimeString()}`);
+        console.log(`Buffered existing: ${existingStartWithBuffer.toLocaleTimeString()} to ${existingEndWithBuffer.toLocaleTimeString()}`);
+        
+        // Check if the requested reservation overlaps with the existing reservation's buffered time
+        // Overlap occurs if the new reservation doesn't end before the buffered start
+        // or doesn't start after the buffered end
+        return !(requestEnd <= existingStartWithBuffer || requestStart >= existingEndWithBuffer);
     });
     
     return {
