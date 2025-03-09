@@ -10,6 +10,7 @@ export const useReservationStore = create((set, get) => ({
   selectedReservation: null,
   loading: false,
   error: null,
+  lastFetched: null,
 
   // Selectors
   getReservationById: (id) => {
@@ -38,17 +39,9 @@ export const useReservationStore = create((set, get) => ({
     }
   },
 
-  fetchTodayReservations: async () => {
-    set({ loading: true, error: null });
-    try {
-      const data = await reservationService.fetchTodayReservations();
-      set({ todayReservations: data, loading: false });
-      return data;
-    } catch (error) {
-      console.error("❌ Error fetching today's reservations:", error);
-      set({ error: "Error fetching today's reservations", loading: false });
-      return [];
-    }
+  fetchTodayReservations: async (forceRefresh = false) => {
+    const data = await get().fetchAllReservationData(forceRefresh);
+    return data.today;
   },
 
   fetchReservationsInDateRange: async (startDate, endDate) => {
@@ -73,23 +66,25 @@ export const useReservationStore = create((set, get) => ({
       const newReservation = await reservationService.createReservation(
         reservationData
       );
-      
+
       set((state) => {
         // Get the date string for grouping (YYYY-MM-DD format)
-        const reservationDate = new Date(newReservation.reservation_time).toISOString().split('T')[0];
-        
+        const reservationDate = new Date(newReservation.reservation_time)
+          .toISOString()
+          .split("T")[0];
+
         // Make a copy of the existing grouped data
         const updatedGroupedByDate = { ...state.upcomingGroupedByDate };
-        
+
         // Add the new reservation to the appropriate date group
         if (!updatedGroupedByDate[reservationDate]) {
           updatedGroupedByDate[reservationDate] = [];
         }
         updatedGroupedByDate[reservationDate] = [
-          ...updatedGroupedByDate[reservationDate], 
-          newReservation
+          ...updatedGroupedByDate[reservationDate],
+          newReservation,
         ];
-        
+
         return {
           reservations: [...state.reservations, newReservation],
           todayReservations: isToday(newReservation.reservation_time)
@@ -100,7 +95,7 @@ export const useReservationStore = create((set, get) => ({
           loading: false,
         };
       });
-      
+
       return newReservation;
     } catch (error) {
       console.error("❌ Error creating reservation:", error);
@@ -116,35 +111,37 @@ export const useReservationStore = create((set, get) => ({
         id,
         reservationData
       );
-      
+
       set((state) => {
         // Get the new date string for grouping
-        const reservationDate = new Date(updatedReservation.reservation_time).toISOString().split('T')[0];
-        
+        const reservationDate = new Date(updatedReservation.reservation_time)
+          .toISOString()
+          .split("T")[0];
+
         // Copy the existing grouped data
         const updatedGroupedByDate = { ...state.upcomingGroupedByDate };
-        
+
         // Remove the reservation from all date groups
-        Object.keys(updatedGroupedByDate).forEach(date => {
+        Object.keys(updatedGroupedByDate).forEach((date) => {
           updatedGroupedByDate[date] = updatedGroupedByDate[date].filter(
-            r => r.reservation_id !== id
+            (r) => r.reservation_id !== id
           );
-          
+
           // Remove empty date entries
           if (updatedGroupedByDate[date].length === 0) {
             delete updatedGroupedByDate[date];
           }
         });
-        
+
         // Add the updated reservation to the appropriate date group
         if (!updatedGroupedByDate[reservationDate]) {
           updatedGroupedByDate[reservationDate] = [];
         }
         updatedGroupedByDate[reservationDate] = [
           ...updatedGroupedByDate[reservationDate],
-          updatedReservation
+          updatedReservation,
         ];
-        
+
         return {
           reservations: state.reservations.map((r) =>
             r.reservation_id === id ? updatedReservation : r
@@ -159,7 +156,7 @@ export const useReservationStore = create((set, get) => ({
           loading: false,
         };
       });
-      
+
       return updatedReservation;
     } catch (error) {
       console.error("❌ Error updating reservation:", error);
@@ -173,23 +170,23 @@ export const useReservationStore = create((set, get) => ({
     try {
       const updatedReservation =
         await reservationService.updateReservationStatus(id, status);
-        
+
       set((state) => {
         // Create a new upcoming reservations array with the updated status
-        const updatedUpcomingReservations = state.upcomingReservations.map((r) =>
-          r.reservation_id === id ? updatedReservation : r
+        const updatedUpcomingReservations = state.upcomingReservations.map(
+          (r) => (r.reservation_id === id ? updatedReservation : r)
         );
-        
+
         // Make a copy of the existing grouped data
         const updatedGroupedByDate = { ...state.upcomingGroupedByDate };
-        
+
         // Update the reservation status in each date group
-        Object.keys(updatedGroupedByDate).forEach(date => {
-          updatedGroupedByDate[date] = updatedGroupedByDate[date].map(r => 
+        Object.keys(updatedGroupedByDate).forEach((date) => {
+          updatedGroupedByDate[date] = updatedGroupedByDate[date].map((r) =>
             r.reservation_id === id ? updatedReservation : r
           );
         });
-        
+
         return {
           reservations: state.reservations.map((r) =>
             r.reservation_id === id ? updatedReservation : r
@@ -202,7 +199,7 @@ export const useReservationStore = create((set, get) => ({
           loading: false,
         };
       });
-      
+
       return updatedReservation;
     } catch (error) {
       console.error("❌ Error updating reservation status:", error);
@@ -215,30 +212,32 @@ export const useReservationStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       await reservationService.deleteReservation(id);
-      
+
       set((state) => {
         // Create a new upcoming reservations array without the deleted reservation
         const filteredUpcomingReservations = state.upcomingReservations.filter(
           (r) => r.reservation_id !== id
         );
-        
+
         // Make a copy of the existing grouped data
         const updatedGroupedByDate = { ...state.upcomingGroupedByDate };
-        
+
         // Remove the deleted reservation from each date group
-        Object.keys(updatedGroupedByDate).forEach(date => {
+        Object.keys(updatedGroupedByDate).forEach((date) => {
           updatedGroupedByDate[date] = updatedGroupedByDate[date].filter(
-            r => r.reservation_id !== id
+            (r) => r.reservation_id !== id
           );
-          
+
           // Remove empty date entries
           if (updatedGroupedByDate[date].length === 0) {
             delete updatedGroupedByDate[date];
           }
         });
-        
+
         return {
-          reservations: state.reservations.filter((r) => r.reservation_id !== id),
+          reservations: state.reservations.filter(
+            (r) => r.reservation_id !== id
+          ),
           todayReservations: state.todayReservations.filter(
             (r) => r.reservation_id !== id
           ),
@@ -247,7 +246,7 @@ export const useReservationStore = create((set, get) => ({
           loading: false,
         };
       });
-      
+
       return true;
     } catch (error) {
       console.error("❌ Error deleting reservation:", error);
@@ -278,22 +277,105 @@ export const useReservationStore = create((set, get) => ({
       throw error;
     }
   },
-  fetchUpcomingReservations: async () => {
+  fetchUpcomingReservations: async (forceRefresh = false) => {
+    const data = await get().fetchAllReservationData(forceRefresh);
+    return {
+      raw: data.all,
+      grouped: data.grouped,
+    };
+  },
+  fetchAllReservationData: async (forceRefresh = false) => {
+    const { lastFetched } = get();
+    const now = Date.now();
+
+    // If we have recent data and forceRefresh is false, return cached data
+    if (
+      lastFetched &&
+      now - lastFetched < 4 * 60 * 60 * 1000 &&
+      !forceRefresh
+    ) {
+      console.log("Using existing reservation data");
+      return {
+        today: get().todayReservations,
+        all: get().upcomingReservations,
+        grouped: get().upcomingGroupedByDate,
+      };
+    }
+
     set({ loading: true, error: null });
     try {
-      const data = await reservationService.fetchUpcomingReservations();
+      const data = await reservationService.fetchAllUpcomingReservations();
+
       set({
-        upcomingReservations: data.raw,
+        todayReservations: data.today,
+        upcomingReservations: data.all,
         upcomingGroupedByDate: data.grouped,
         loading: false,
+        lastFetched: Date.now(),
       });
+
       return data;
     } catch (error) {
-      console.error("❌ Error fetching upcoming reservations:", error);
-      set({ error: "Error fetching upcoming reservations", loading: false });
-      return { raw: [], grouped: {} };
+      console.error("❌ Error fetching reservation data:", error);
+      set({
+        error: "Error fetching reservations",
+        loading: false,
+      });
+      return {
+        today: [],
+        all: [],
+        grouped: {},
+      };
     }
   },
+  checkTableAvailabilityLocal: (
+    tableId,
+    startTime, 
+    endTime,
+    excludeReservationId = null,
+    bufferMinutes = 30
+) => {
+    const { upcomingReservations } = get();
+    
+    // Convert times to Date objects for comparison
+    const requestStart = new Date(startTime);
+    const requestEnd = endTime ? new Date(endTime) : 
+                      new Date(requestStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+    
+    // Apply buffer time to check window
+    const bufferMs = bufferMinutes * 60 * 1000;
+    const requestStartWithBuffer = new Date(requestStart.getTime() - bufferMs);
+    const requestEndWithBuffer = new Date(requestEnd.getTime() + bufferMs);
+    
+    // Find any conflicting reservations
+    const conflictingReservations = upcomingReservations.filter(reservation => {
+        // Skip this reservation if it's the one we're updating
+        if (excludeReservationId && reservation.reservation_id === excludeReservationId)
+            return false;
+        
+        // Skip if not for the requested table
+        if (reservation.table_id !== tableId) 
+            return false;
+        
+        // Skip if canceled
+        if (reservation.status === "canceled") 
+            return false;
+        
+        // Get reservation time range
+        const resStart = new Date(reservation.reservation_time);
+        const resEnd = reservation.end_time ? new Date(reservation.end_time) : 
+                       new Date(resStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+        
+        // Check for time overlap with buffer
+        // Reservations overlap if one doesn't end before the other starts
+        return !(resEnd <= requestStartWithBuffer || resStart >= requestEndWithBuffer);
+    });
+    
+    return {
+        available: conflictingReservations.length === 0,
+        conflictingReservations
+    };
+}
 }));
 
 // Helper function to check if a date is today

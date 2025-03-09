@@ -18,17 +18,47 @@ export const reservationService = {
     }
   },
 
-  async fetchTodayReservations() {
+  // New combined method in reservationService.js
+  async fetchAllUpcomingReservations() {
+    console.log("Fetching all upcoming reservations...");
     try {
-      const response = await fetch(`${API_URL}/reservations/today`, {
+      const response = await fetch(`${API_URL}/reservations/all-upcoming`, {
         headers: {
           Authorization: `Bearer ${process.env.EXPO_PUBLIC_ADMIN_API_KEY}`,
         },
       });
+
       if (!response.ok) {
-        throw new Error("Failed to fetch today's reservations");
+        throw new Error("Failed to fetch reservations");
       }
+
       return response.json();
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  },
+
+  // Keep the existing methods for backward compatibility
+  async fetchTodayReservations() {
+    console.log("[DEPRECATED] Use fetchAllUpcomingReservations instead");
+    try {
+      const allData = await this.fetchAllUpcomingReservations();
+      return allData.today;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  },
+
+  async fetchUpcomingReservations() {
+    console.log("[DEPRECATED] Use fetchAllUpcomingReservations instead");
+    try {
+      const allData = await this.fetchAllUpcomingReservations();
+      return {
+        raw: allData.all,
+        grouped: allData.grouped,
+      };
     } catch (error) {
       console.error(error);
       throw error;
@@ -153,23 +183,6 @@ export const reservationService = {
       return response.json();
     } catch (error) {
       console.error("Error checking table availability:", error);
-      throw error;
-    }
-  },
-
-  async fetchUpcomingReservations() {
-    console.log("Fetching upcoming reservations...");
-    try {
-      const response = await fetch(`${API_URL}/reservations/upcoming`, {
-        headers: {
-          Authorization: `Bearer ${process.env.EXPO_PUBLIC_ADMIN_API_KEY}`,
-        },
-      });
-      if (!response.ok)
-        throw new Error("Failed to fetch upcoming reservations");
-      return response.json();
-    } catch (error) {
-      console.error(error);
       throw error;
     }
   },

@@ -6,8 +6,7 @@ export const doesTableHaveOrders = (tableNumber, orders) => {
 
 export const findOrdersForTable = (tableNumber, orders) => {
     const allOrders = orders.filter((order) => String(order.table_num) === String(tableNumber))
-    const incompleteOrders = allOrders.filter((order) => order.order_status !== 'Completed')
-    return incompleteOrders
+    return allOrders.filter((order) => order.order_status !== 'Completed')
 }
 
 export const findAllOrdersForTable = (tableNumber, orders) => {

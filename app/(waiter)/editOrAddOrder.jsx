@@ -104,7 +104,6 @@ const EditOrAddOrder = () => {
                 // Add new inventory item
                 const newItem = {
                     id: item.inventory_item_id,
-                    type: 'inventory',
                     uniqueKey: `${item.inventory_item_id}-${Date.now()}`,
                     name: item.inventory_item_name,
                     price: item.cost_per_unit,
@@ -264,7 +263,7 @@ const EditOrAddOrder = () => {
                 text2: `Failed to ${isEditMode ? 'update' : 'create'} order. Please try again.`,
             });
         }
-    }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders, orders]);
+    }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders]);
 
     const renderMenuItem = useMemo(
         () =>
