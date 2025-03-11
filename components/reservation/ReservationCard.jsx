@@ -11,6 +11,23 @@ export const ReservationCard = ({
     onDelete,
     formatDate 
 }) => {
+    // Check if reservation is in the past (end time or reservation time + 2 hours is in the past)
+    const isPast = () => {
+        const now = new Date();
+        const reservationTime = new Date(reservation.reservation_time);
+        const endTime = reservation.end_time ? new Date(reservation.end_time) : 
+            new Date(reservationTime.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours
+        
+        return now > endTime;
+    };
+    
+    // Determine which status change buttons to show based on current status
+    const showConfirmButton = ['pending'].includes(reservation.status);
+    const showSeatButton = ['pending', 'confirmed'].includes(reservation.status);
+    const showCompleteButton = ['seated'].includes(reservation.status) || 
+        (isPast() && ['pending', 'confirmed'].includes(reservation.status));
+    const showCancelButton = !['completed', 'canceled'].includes(reservation.status);
+
     return (
         <View className="bg-white border border-gray-100 rounded-xl p-5 mb-4 shadow-sm">
             <View className="flex-row justify-between items-start">
@@ -69,7 +86,7 @@ export const ReservationCard = ({
                     <Text className="text-blue-700 font-medium ml-1.5 text-sm">Edit</Text>
                 </TouchableOpacity>
 
-                {reservation.status !== 'confirmed' && (
+                {showConfirmButton && (
                     <TouchableOpacity
                         onPress={() => onStatusChange(reservation.reservation_id, 'confirmed')}
                         className="mr-2 bg-green-50 px-3 py-2 rounded-lg flex-row items-center">
@@ -78,16 +95,25 @@ export const ReservationCard = ({
                     </TouchableOpacity>
                 )}
 
-                {reservation.status !== 'seated' && reservation.status !== 'canceled' && (
+                {showSeatButton && (
                     <TouchableOpacity
                         onPress={() => onStatusChange(reservation.reservation_id, 'seated')}
-                        className="mr-2 bg-blue-50 px-3 py-2 rounded-lg flex-row items-center">
-                        <Feather name="users" size={16} color="#1d4ed8" />
-                        <Text className="text-blue-700 font-medium ml-1.5 text-sm">Seat</Text>
+                        className="mr-2 bg-indigo-50 px-3 py-2 rounded-lg flex-row items-center">
+                        <Feather name="users" size={16} color="#4f46e5" />
+                        <Text className="text-indigo-700 font-medium ml-1.5 text-sm">Seat</Text>
+                    </TouchableOpacity>
+                )}
+                
+                {showCompleteButton && (
+                    <TouchableOpacity
+                        onPress={() => onStatusChange(reservation.reservation_id, 'completed')}
+                        className="mr-2 bg-purple-50 px-3 py-2 rounded-lg flex-row items-center">
+                        <Feather name="check-circle" size={16} color="#7e22ce" />
+                        <Text className="text-purple-700 font-medium ml-1.5 text-sm">Complete</Text>
                     </TouchableOpacity>
                 )}
 
-                {reservation.status !== 'canceled' && (
+                {showCancelButton && (
                     <TouchableOpacity
                         onPress={() => onStatusChange(reservation.reservation_id, 'canceled')}
                         className="mr-2 bg-red-50 px-3 py-2 rounded-lg flex-row items-center">

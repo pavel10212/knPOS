@@ -20,7 +20,7 @@ const TableComponent = ({
     const OFFSET_Y = 15;
 
     const router = useRouter();
-    
+
     const selectTable = tableStore((state) => state.selectTable)
     const dropdownTableNumber = tableStore((state) => state.dropdownTableNumber)
     const setDropdownTable = tableStore((state) => state.setDropdownTable)
@@ -37,19 +37,19 @@ const TableComponent = ({
     const ordersForTable = useMemo(() => {
         return orders.filter((order) => {
             // Convert both to strings for comparison to handle mixed types
-            return String(order.table_num) === String(table_num) && 
-                   order.order_status !== 'Completed';
+            return String(order.table_num) === String(table_num) &&
+                order.order_status !== 'Completed';
         });
     }, [orders, table_num]);
 
     // Find the active reservation for this table
     const tableReservation = useMemo(() => {
         if (status !== 'Reserved') return null;
-        
+
         // Find the reservation for this table that has not been completed or canceled
         return upcomingReservations.find(
-            reservation => 
-                reservation.table_id === table_id && 
+            reservation =>
+                reservation.table_id === table_id &&
                 !['completed', 'canceled'].includes(reservation.status)
         );
     }, [upcomingReservations, table_id, status]);
@@ -96,11 +96,11 @@ const TableComponent = ({
                 );
                 return;
             }
-            
+
             // If no conflicts, navigate to reservation page
             router.push({
                 pathname: "/reservation",
-                params: { 
+                params: {
                     createNew: true,
                     selectedTableId: table_id,
                     selectedTableNum: table_num
@@ -108,7 +108,7 @@ const TableComponent = ({
             });
             return;
         }
-        
+
         try {
             if (newStatus === 'Available' && ordersForTable.length > 0) {
                 setShowConfirmModal(true);
@@ -215,14 +215,14 @@ const TableComponent = ({
 
     const viewReservationDetails = () => {
         if (!tableReservation) return;
-        
+
         // Close any open menus
         setDropdownTable(null);
-        
+
         // Navigate to reservation page with this reservation highlighted
         router.push({
             pathname: "/reservation",
-            params: { 
+            params: {
                 viewReservation: true,
                 reservationId: tableReservation.reservation_id
             }

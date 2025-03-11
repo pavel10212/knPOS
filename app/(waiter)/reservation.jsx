@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSharedStore } from "../../hooks/useSharedStore";
 import {
-    View, Text, ScrollView, ActivityIndicator, Alert,
+    View, Text, ScrollView, ActivityIndicator, Alert, Switch,
     Animated, StatusBar, Dimensions, TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -69,6 +69,7 @@ const Reservation = () => {
     });
     const [editFormErrors, setEditFormErrors] = useState({});
     const [editModalAnimation] = useState(new Animated.Value(0));
+    const [showPastReservations, setShowPastReservations] = useState(false);
 
 
     // Date picker handlers
@@ -156,18 +157,27 @@ const Reservation = () => {
     );
     // Filter reservations based on selected date
     const getFilteredReservations = () => {
+        let result = [];
+        
         if (selectedDateTab === 'today') {
-            // Filter today's reservations by search query
-            return todayReservations.filter(res =>
+            // Filter today's reservations
+            result = todayReservations.filter(res =>
                 res.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
             );
         } else {
-            // Get reservations for the selected date and filter by search
+            // Get reservations for the selected date
             const dateReservations = upcomingGroupedByDate[selectedDateTab] || [];
-            return dateReservations.filter(res =>
+            result = dateReservations.filter(res =>
                 res.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
+        
+        // Apply past reservation filter if needed
+        if (!showPastReservations) {
+            result = result.filter(res => !['completed', 'canceled'].includes(res.status));
+        }
+        
+        return result;
     };
 
 
@@ -757,6 +767,63 @@ const Reservation = () => {
         }
     }, [showEditReservationModal, editReservationForm.reservation_time, editReservationForm.end_time]);
 
+    // Function to check if a reservation should be auto-completed
+    const checkAndAutoUpdatePastReservations = useCallback(() => {
+        if (!todayReservations || !upcomingGroupedByDate) return;
+        
+        const now = new Date();
+        const pastReservations = [];
+        
+        // Check today's reservations
+        todayReservations.forEach(reservation => {
+            if (['pending', 'confirmed', 'seated'].includes(reservation.status)) {
+                const reservationTime = new Date(reservation.reservation_time);
+                const endTime = reservation.end_time ? new Date(reservation.end_time) : 
+                    new Date(reservationTime.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours
+                
+                if (now > endTime) {
+                    pastReservations.push({
+                        id: reservation.reservation_id,
+                        status: reservation.status
+                    });
+                }
+            }
+        });
+        
+        // Check upcoming reservations
+        Object.values(upcomingGroupedByDate).forEach(reservationsForDate => {
+            reservationsForDate.forEach(reservation => {
+                if (['pending', 'confirmed', 'seated'].includes(reservation.status)) {
+                    const reservationTime = new Date(reservation.reservation_time);
+                    const endTime = reservation.end_time ? new Date(reservation.end_time) : 
+                        new Date(reservationTime.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours
+                    
+                    if (now > endTime) {
+                        pastReservations.push({
+                            id: reservation.reservation_id,
+                            status: reservation.status
+                        });
+                    }
+                }
+            });
+        });
+        
+        // Update status for past reservations
+        if (pastReservations.length > 0) {
+            console.log(`Found ${pastReservations.length} past reservations to update`);
+            pastReservations.forEach(async (item) => {
+                // Mark seated as completed, mark pending/confirmed as canceled
+                const newStatus = item.status === 'seated' ? 'completed' : 'completed';
+                await updateReservationStatus(item.id, newStatus);
+            });
+        }
+    }, [todayReservations, upcomingGroupedByDate, updateReservationStatus]);
+
+    // Call auto-update function when data changes
+    useEffect(() => {
+        checkAndAutoUpdatePastReservations();
+    }, [checkAndAutoUpdatePastReservations]);
+
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
@@ -768,8 +835,19 @@ const Reservation = () => {
                     onClearSearch={() => setSearchQuery('')}
                 />
 
+                {/* Add filter for past reservations */}
+                <View className="px-6 pt-2 flex-row items-center justify-end">
+                    <Text className="text-gray-600 mr-2">Show completed/canceled</Text>
+                    <Switch
+                        value={showPastReservations}
+                        onValueChange={setShowPastReservations}
+                        trackColor={{ false: "#d1d5db", true: "#93c5fd" }}
+                        thumbColor={showPastReservations ? "#3b82f6" : "#f3f4f6"}
+                    />
+                </View>
+
                 <ScrollView
-                    className="flex-1 px-6 pt-5"
+                    className="flex-1 px-6 pt-2"
                     ref={scrollViewRef}
                     showsVerticalScrollIndicator={false}>
 
@@ -780,6 +858,34 @@ const Reservation = () => {
                         upcomingGroupedByDate={upcomingGroupedByDate}
                     />
 
+                    {/* Status helper text */}
+                    <View className="bg-white p-4 rounded-lg mb-4 border border-gray-100 shadow-sm">
+                        <Text className="text-gray-800 font-medium mb-2">Reservation Status Guide:</Text>
+                        <View className="flex-row flex-wrap">
+                            <View className="flex-row items-center mr-4 mb-2">
+                                <View className="w-3 h-3 rounded-full bg-amber-100 mr-1" />
+                                <Text className="text-xs text-gray-600">Pending: Not yet confirmed</Text>
+                            </View>
+                            <View className="flex-row items-center mr-4 mb-2">
+                                <View className="w-3 h-3 rounded-full bg-green-100 mr-1" />
+                                <Text className="text-xs text-gray-600">Confirmed: Verified but not seated</Text>
+                            </View>
+                            <View className="flex-row items-center mr-4 mb-2">
+                                <View className="w-3 h-3 rounded-full bg-blue-100 mr-1" />
+                                <Text className="text-xs text-gray-600">Seated: Customers are at table</Text>
+                            </View>
+                            <View className="flex-row items-center mr-4 mb-2">
+                                <View className="w-3 h-3 rounded-full bg-purple-100 mr-1" />
+                                <Text className="text-xs text-gray-600">Completed: Reservation finished</Text>
+                            </View>
+                            <View className="flex-row items-center mb-2">
+                                <View className="w-3 h-3 rounded-full bg-red-100 mr-1" />
+                                <Text className="text-xs text-gray-600">Canceled: Reservation canceled</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Rest of the render logic */}
                     {loading ? (
                         <LoadingState />
                     ) : error ? (

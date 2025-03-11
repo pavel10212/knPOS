@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
@@ -25,6 +25,34 @@ export const DateNavigation = ({
             onDateSelect(dateOptions[currentIndex + 1].value);
         }
     };
+    
+    // Compute active reservation counts (excluding completed and canceled)
+    const activeReservationCounts = useMemo(() => {
+        const result = {};
+        if (!upcomingGroupedByDate) return result;
+        
+        Object.keys(upcomingGroupedByDate).forEach(date => {
+            // Filter out completed and canceled reservations
+            const activeReservations = upcomingGroupedByDate[date].filter(
+                res => !['completed', 'canceled'].includes(res.status)
+            );
+            
+            // Only store count if there are active reservations
+            if (activeReservations.length > 0) {
+                result[date] = activeReservations.length;
+            }
+        });
+        
+        return result;
+    }, [upcomingGroupedByDate]);
+    
+    // Get current count for selected date tab
+    const currentTabCount = useMemo(() => {
+        if (!upcomingGroupedByDate || !selectedDateTab) return 0;
+        
+        const reservations = upcomingGroupedByDate[selectedDateTab] || [];
+        return reservations.filter(res => !['completed', 'canceled'].includes(res.status)).length;
+    }, [upcomingGroupedByDate, selectedDateTab]);
 
     return (
         <>
@@ -47,14 +75,14 @@ export const DateNavigation = ({
                             {dateOption.label}
                         </Text>
 
-                        {upcomingGroupedByDate && upcomingGroupedByDate[dateOption.value]?.length > 0 && (
+                        {activeReservationCounts[dateOption.value] > 0 && (
                             <View className={`absolute -top-0 -right-1 bg-${
                                 selectedDateTab === dateOption.value ? 'white' : 'blue-600'
                             } rounded-full min-w-[18px] h-[18px] items-center justify-center px-1`}>
                                 <Text className={`text-xs font-bold ${
                                     selectedDateTab === dateOption.value ? 'text-blue-600' : 'text-white'
                                 }`}>
-                                    {upcomingGroupedByDate[dateOption.value].length}
+                                    {activeReservationCounts[dateOption.value]}
                                 </Text>
                             </View>
                         )}
@@ -83,7 +111,7 @@ export const DateNavigation = ({
                         {dateOptions.find(opt => opt.value === selectedDateTab)?.label || 'Reservations'}
                     </Text>
                     <Text className="text-center text-xs text-gray-500">
-                        {upcomingGroupedByDate && upcomingGroupedByDate[selectedDateTab]?.length || 0} reservation(s)
+                        {currentTabCount} active reservation(s)
                     </Text>
                 </View>
 
