@@ -17,8 +17,19 @@ import { EditReservationModal } from '../../components/reservation/EditReservati
 import { EmptyState } from '../../components/reservation/EmptyState';
 import { formatDate } from '../../utils/reservationUtils';
 import { format } from 'date-fns';
+import { tableStore } from "../../hooks/useStore";
+import { useLocalSearchParams } from 'expo-router';
 
 const Reservation = () => {
+    // Get URL parameters
+    const params = useLocalSearchParams();
+    
+    // Ref to track if we've already processed the URL params
+    const paramsProcessedRef = useRef({
+        createNew: false,
+        viewReservation: false
+    });
+    
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDateTab, setSelectedDateTab] = useState('today');
     const [dateOptions, setDateOptions] = useState([]);
@@ -37,7 +48,7 @@ const Reservation = () => {
         customer_phone: '',
         customer_email: '',
         party_size: 2,
-        table_id: '',
+        table_id: params?.selectedTableId || '',
         reservation_time: new Date().toISOString(),
         end_time: '',
         status: 'pending',
@@ -405,12 +416,51 @@ const Reservation = () => {
             }
 
             // If available, update the reservation
-            await updateReservation(reservationId, {
+            const updatedReservation = await updateReservation(reservationId, {
                 ...editReservationForm,
                 party_size: Number(editReservationForm.party_size),
                 table_id: tableId,
                 end_time: endTime // Ensure end_time is always set
             });
+            
+            // Check if the reservation is within 2 hours from now
+            // If so, immediately mark the table as Reserved
+            const reservationTime = new Date(editReservationForm.reservation_time);
+            const currentTime = new Date();
+            const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
+            
+            if (reservationTime <= twoHoursFromNow) {
+                console.log(`Updated reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved immediately`);
+                
+                // Get the table number
+                const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+                
+                // Create reservation details for the table
+                const reservationDetails = {
+                    customerName: editReservationForm.customer_name,
+                    arrivalTime: new Date(editReservationForm.reservation_time).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    specialRequests: editReservationForm.notes || '',
+                    reservedAt: new Date().toISOString(),
+                    partySize: Number(editReservationForm.party_size)
+                };
+                
+                // Immediately mark the table as Reserved
+                try {
+                    await tableStore.getState().updateTableStatus(
+                        tableNum,
+                        'Reserved',
+                        reservationDetails
+                    );
+                    console.log(`✅ Table ${tableNum} marked as Reserved immediately for upcoming updated reservation`);
+                } catch (error) {
+                    console.error(`❌ Failed to mark table ${tableNum} as Reserved:`, error);
+                    // Note: We don't want to block the reservation update if this fails
+                    // The background process will retry later
+                }
+            }
 
             setShowEditReservationModal(false);
             fetchTodayReservations();
@@ -419,7 +469,6 @@ const Reservation = () => {
         }
     };
 
-    // Replace your current handleSubmitNewReservation function
     const handleSubmitNewReservation = async () => {
         const errors = validateForm();
         setFormErrors(errors);
@@ -474,12 +523,51 @@ const Reservation = () => {
             }
 
             // If available, proceed with creating the reservation
-            await createReservation({
+            const newReservation = await createReservation({
                 ...reservationForm,
                 party_size: Number(reservationForm.party_size),
                 table_id: tableId,
                 end_time: endTime // Ensure end_time is always set
             });
+
+            // Check if the reservation is within 2 hours from now
+            // If so, immediately mark the table as Reserved
+            const reservationTime = new Date(reservationForm.reservation_time);
+            const currentTime = new Date();
+            const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
+            
+            if (reservationTime <= twoHoursFromNow) {
+                console.log(`Reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved immediately`);
+                
+                // Get the table number
+                const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+                
+                // Create reservation details for the table
+                const reservationDetails = {
+                    customerName: reservationForm.customer_name,
+                    arrivalTime: new Date(reservationForm.reservation_time).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    specialRequests: reservationForm.notes || '',
+                    reservedAt: new Date().toISOString(),
+                    partySize: Number(reservationForm.party_size)
+                };
+                
+                // Immediately mark the table as Reserved
+                try {
+                    await tableStore.getState().updateTableStatus(
+                        tableNum,
+                        'Reserved',
+                        reservationDetails
+                    );
+                    console.log(`✅ Table ${tableNum} marked as Reserved immediately for upcoming reservation`);
+                } catch (error) {
+                    console.error(`❌ Failed to mark table ${tableNum} as Reserved:`, error);
+                    // Note: We don't want to block the reservation creation if this fails
+                    // The background process will retry later
+                }
+            }
 
             setShowNewReservationModal(false);
             fetchTodayReservations();
@@ -568,6 +656,71 @@ const Reservation = () => {
         }
     }, [showEditReservationModal, editReservationForm.reservation_time, editReservationForm.end_time]);
 
+    // Handle URL parameters when the component mounts or on navigation
+    useEffect(() => {
+        // If we have data and there are URL parameters
+        if (!loading && params) {
+            // Case 1: We're viewing a specific reservation
+            if (params.viewReservation === 'true' && params.reservationId && 
+                !paramsProcessedRef.current.viewReservation) {
+                
+                paramsProcessedRef.current.viewReservation = true;
+                console.log(`Looking for reservation ID: ${params.reservationId}`);
+                
+                // Find all reservations (combine today and all upcoming)
+                const allReservations = [];
+                todayReservations.forEach(res => allReservations.push(res));
+                
+                // Add all reservations from upcomingGroupedByDate
+                Object.values(upcomingGroupedByDate).forEach(reservationsForDate => {
+                    reservationsForDate.forEach(res => allReservations.push(res));
+                });
+                
+                // Find the target reservation
+                const targetReservation = allReservations.find(res => 
+                    String(res.reservation_id) === String(params.reservationId)
+                );
+                
+                if (targetReservation) {
+                    console.log('Found reservation, opening edit modal');
+                    handleEditReservation(targetReservation);
+                }
+            }
+            
+            // Case 2: Creating a new reservation with pre-selected table
+            else if (params.createNew === 'true' && params.selectedTableId && 
+                     !paramsProcessedRef.current.createNew) {
+                
+                paramsProcessedRef.current.createNew = true;
+                console.log(`Creating new reservation for table ID: ${params.selectedTableId}`);
+                
+                // Set the form with the selected table and open modal
+                setReservationForm(prev => ({
+                    ...prev,
+                    table_id: params.selectedTableId
+                }));
+                
+                // Open the modal after a short delay to ensure the form is updated
+                setTimeout(() => {
+                    setShowNewReservationModal(true);
+                }, 100);
+            }
+        }
+    }, [loading, params, todayReservations, upcomingGroupedByDate]);
+
+    // Reset the params processed flag when the modals are closed
+    useEffect(() => {
+        if (!showNewReservationModal) {
+            paramsProcessedRef.current.createNew = false;
+        }
+    }, [showNewReservationModal]);
+
+    useEffect(() => {
+        if (!showEditReservationModal) {
+            paramsProcessedRef.current.viewReservation = false;
+        }
+    }, [showEditReservationModal]);
+
     // Modal opening handler
     const openNewReservationModal = () => {
         // Set form values and reset errors
@@ -576,7 +729,7 @@ const Reservation = () => {
             customer_phone: '',
             customer_email: '',
             party_size: 2,
-            table_id: '',
+            table_id: params?.selectedTableId || '', // Use selected table from params if available
             reservation_time: new Date().toISOString(),
             end_time: '',
             status: 'pending',
@@ -590,7 +743,7 @@ const Reservation = () => {
         // Check availability immediately - it's fast now since it's local
         checkAllTablesAvailability();
     };
-    // Remove the complex useEffects and replace with this simple one:
+
     useEffect(() => {
         if (showNewReservationModal && reservationForm.reservation_time) {
             // Local check is fast and doesn't need throttling

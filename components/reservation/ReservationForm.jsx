@@ -134,12 +134,14 @@ export const ReservationForm = ({
                                 {(availableTables.length > 0 ? availableTables : tables).map((table) => {
                                     const isAvailable = availableTables.length === 0 ||
                                         table.available ||
-                                        String(form.table_id) === String(table.table_id);
+                                        String(table.table_id) === String(form.table_id);
+                                    
+                                    const isSelected = String(table.table_id) === String(form.table_id);
 
                                     return (
                                         <TouchableOpacity
                                             key={table.table_id}
-                                            className={`px-4 py-3 m-1 rounded-xl ${form.table_id === table.table_id
+                                            className={`px-4 py-3 m-1 rounded-xl ${isSelected
                                                     ? 'bg-blue-600'
                                                     : isAvailable ? 'bg-gray-100' : 'bg-red-50'
                                                 } min-w-[100px] items-center`}
@@ -176,11 +178,11 @@ export const ReservationForm = ({
                                             }}
                                             disabled={!isAvailable}
                                         >
-                                            <View className={`w-8 h-8 rounded-full ${form.table_id === table.table_id
+                                            <View className={`w-8 h-8 rounded-full ${isSelected
                                                     ? 'bg-blue-300'
                                                     : isAvailable ? 'bg-white' : 'bg-red-100'
                                                 } items-center justify-center mb-1`}>
-                                                <Text className={`text-sm font-bold ${form.table_id === table.table_id
+                                                <Text className={`text-sm font-bold ${isSelected
                                                         ? 'text-blue-800'
                                                         : isAvailable ? 'text-gray-800' : 'text-red-800'
                                                     }`}>
@@ -188,7 +190,7 @@ export const ReservationForm = ({
                                                 </Text>
                                             </View>
 
-                                            <Text className={`text-xs font-medium ${form.table_id === table.table_id
+                                            <Text className={`text-xs font-medium ${isSelected
                                                     ? 'text-white'
                                                     : isAvailable ? 'text-gray-700' : 'text-red-700'
                                                 }`}>
@@ -196,7 +198,7 @@ export const ReservationForm = ({
                                             </Text>
 
                                             {table.capacity && (
-                                                <Text className={`text-xs ${form.table_id === table.table_id
+                                                <Text className={`text-xs ${isSelected
                                                         ? 'text-blue-200'
                                                         : isAvailable ? 'text-gray-500' : 'text-red-300'
                                                     } mt-0.5`}>

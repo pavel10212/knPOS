@@ -1,23 +1,26 @@
-import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal } from 'react-native'
-import React, { useEffect, useState, useMemo } from 'react'
+import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal, Alert } from 'react-native'
+import React, { useState, useMemo } from 'react'
 import { useSharedStore } from '../hooks/useSharedStore';
 import { tableStore } from '../hooks/useStore';
 import { updateOrderStatus } from '../services/orderService';
+import { useRouter } from 'expo-router';
+import { useReservationStore } from '../hooks/useReservationStore';
 
 const TableComponent = ({
     table_num,
+    table_id,
     capacity,
     status,
-    reservation_details,
     location,
     rotation,
     token,
-    onReserve
 }) => {
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = 30;
     const OFFSET_Y = 15;
 
+    const router = useRouter();
+    
     const selectTable = tableStore((state) => state.selectTable)
     const dropdownTableNumber = tableStore((state) => state.dropdownTableNumber)
     const setDropdownTable = tableStore((state) => state.setDropdownTable)
@@ -25,9 +28,9 @@ const TableComponent = ({
     const resetTableToken = tableStore((state) => state.resetTableToken)
     const orders = useSharedStore((state) => state.orders);
     const setOrders = useSharedStore((state) => state.setOrders);
+    const upcomingReservations = useReservationStore(state => state.upcomingReservations);
 
     const isDropdownOpen = dropdownTableNumber === table_num;
-    const [isReservationVisible, setIsReservationVisible] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     // Updated useMemo to handle both string and number table numbers
@@ -39,25 +42,78 @@ const TableComponent = ({
         });
     }, [orders, table_num]);
 
+    // Find the active reservation for this table
+    const tableReservation = useMemo(() => {
+        if (status !== 'Reserved') return null;
+        
+        // Find the reservation for this table that has not been completed or canceled
+        return upcomingReservations.find(
+            reservation => 
+                reservation.table_id === table_id && 
+                !['completed', 'canceled'].includes(reservation.status)
+        );
+    }, [upcomingReservations, table_id, status]);
+
 
     const ifLongPressed = () => {
-        setIsReservationVisible(false);
         setDropdownTable(isDropdownOpen ? null : table_num);
     }
 
     const handleStatusChange = async (newStatus) => {
         if (newStatus === 'Reserved') {
+            // Close the dropdown
             setDropdownTable(null);
-            onReserve(table_num);
+
+            // Check if the table has any active reservations within next 2 hours
+            const now = new Date();
+            const twoHoursLater = new Date(now.getTime() + (2 * 60 * 60 * 1000));
+
+            const checkResult = useReservationStore.getState().checkTableAvailabilityLocal(
+                table_id,
+                now.toISOString(),
+                twoHoursLater.toISOString()
+            );
+
+            if (!checkResult.available) {
+                // Show conflict details
+                const conflicts = checkResult.conflictingReservations;
+                const conflictTimes = conflicts.map(res => {
+                    const startTime = new Date(res.reservation_time).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const endTime = res.end_time ?
+                        new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
+                        "unspecified end time";
+
+                    return `${startTime} - ${endTime} (${res.customer_name})`;
+                }).join("\n");
+
+                Alert.alert(
+                    "Table Not Available",
+                    `This table has existing reservations:\n\n${conflictTimes}\n\nPlease choose a different table or time.`,
+                    [{ text: "OK" }]
+                );
+                return;
+            }
+            
+            // If no conflicts, navigate to reservation page
+            router.push({
+                pathname: "/reservation",
+                params: { 
+                    createNew: true,
+                    selectedTableId: table_id,
+                    selectedTableNum: table_num
+                }
+            });
             return;
         }
+        
         try {
             if (newStatus === 'Available' && ordersForTable.length > 0) {
                 setShowConfirmModal(true);
                 return;
             }
-
-            console.log(ordersForTable.length, "The length of the orders for this table")
 
             if (newStatus === 'Available') {
                 await resetTableToken(table_num);
@@ -149,36 +205,37 @@ const TableComponent = ({
         };
     };
 
-    const getReservationPosition = () => {
-        const base = getBasePosition();
-        return {
-            left: base.left - 20,
-            top: base.top - 100
-        };
-    };
-
     const getCounterRotation = () => ({
         transform: [{ rotate: `${-(rotation || 0)}deg` }]
     });
 
     const handleOutsideClick = () => {
-        setIsReservationVisible(false);
         setDropdownTable(null);
     };
 
-    const toggleReservationDetails = (e) => {
-        e.stopPropagation();
-        if (isDropdownOpen) return;
-        setIsReservationVisible(!isReservationVisible);
+    const viewReservationDetails = () => {
+        if (!tableReservation) return;
+        
+        // Close any open menus
+        setDropdownTable(null);
+        
+        // Navigate to reservation page with this reservation highlighted
+        router.push({
+            pathname: "/reservation",
+            params: { 
+                viewReservation: true,
+                reservationId: tableReservation.reservation_id
+            }
+        });
     };
 
     const handleTableClick = (e) => {
         e.stopPropagation();
-        if (isDropdownOpen || isReservationVisible) {
+        if (isDropdownOpen) {
             handleOutsideClick();
             return;
         }
-        selectTable({ table_num, orders, capacity, status, reservation_details, token });
+        selectTable({ table_num, orders, capacity, status, token });
     };
 
     return (
@@ -199,9 +256,9 @@ const TableComponent = ({
                         <Text className="text-white font-semibold text-base text-center">Table {table_num}</Text>
                         <Text className="text-white text-sm text-center">{capacity} Persons</Text>
                         {status === 'Reserved' && (
-                            <TouchableOpacity onPress={toggleReservationDetails} className="mt-1">
+                            <TouchableOpacity onPress={viewReservationDetails} className="mt-1">
                                 <Text className="text-white text-xs underline">
-                                    {isReservationVisible ? 'Hide Details' : 'View Details'}
+                                    View Details
                                 </Text>
                             </TouchableOpacity>
                         )}
@@ -210,7 +267,7 @@ const TableComponent = ({
             </View>
 
             {/* Dropdown Overlay */}
-            {(isDropdownOpen || isReservationVisible) && (
+            {isDropdownOpen && (
                 <TouchableWithoutFeedback onPress={handleOutsideClick}>
                     <View style={{
                         position: 'absolute',
@@ -244,34 +301,6 @@ const TableComponent = ({
                     <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Unavailable')}>
                         <Text>Unavailable</Text>
                     </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Reservation Details */}
-            {isReservationVisible && (
-                <View style={{
-                    position: 'absolute',
-                    ...getReservationPosition(),
-                    backgroundColor: 'rgba(0,0,0,0.9)',
-                    borderRadius: 8,
-                    padding: 12,
-                    width: 200,
-                    zIndex: 999
-                }}>
-                    <Text className="text-white text-sm font-bold mb-1">
-                        {reservation_details?.customerName}
-                    </Text>
-                    <Text className="text-white text-xs mb-2">
-                        Arrival: {reservation_details?.arrivalTime}
-                    </Text>
-                    {reservation_details?.specialRequests && (
-                        <View className="border-t border-white/20 pt-2">
-                            <Text className="text-white/80 text-xs mb-1">Special Requests:</Text>
-                            <Text className="text-white text-xs italic">
-                                {reservation_details.specialRequests}
-                            </Text>
-                        </View>
-                    )}
                 </View>
             )}
 

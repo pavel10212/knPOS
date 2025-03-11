@@ -34,21 +34,13 @@ export const tableStore = create((set, get) => ({
   },
 
   // Table Status
-  updateTableStatus: async (
-    table_num,
-    newStatus,
-    reservationDetails = null
-  ) => {
+  updateTableStatus: async (table_num, newStatus) => {
     try {
       console.log(
         `📡 Sending PUT request to /table-update for table ${table_num} with status ${newStatus}`
       );
 
-      const updateData = await tableService.updateTableStatus(
-        table_num,
-        newStatus,
-        reservationDetails
-      );
+      const updateData = await tableService.updateTableStatus(table_num, newStatus);
       console.log(`✅ Table ${table_num} status updated successfully`);
 
       const tables = useSharedStore.getState().tables;
@@ -60,7 +52,6 @@ export const tableStore = create((set, get) => ({
             ? {
                 ...table,
                 status: updateData.status,
-                reservation_details: reservationDetails,
               }
             : table
         );
@@ -73,7 +64,6 @@ export const tableStore = create((set, get) => ({
               ? {
                   ...state.selectedTable,
                   status: updateData.status,
-                  reservation_details: reservationDetails,
                 }
               : state.selectedTable,
         };
@@ -88,28 +78,6 @@ export const tableStore = create((set, get) => ({
 
   // Reservation
   setReservationModal: (modalState) => set({ reservationModal: modalState }),
-  updateTableReservation: (tableNumber, reservationData) =>
-    set((state) => {
-      const updatedTables = state.tables.map((table) =>
-        table.number === tableNumber
-          ? {
-              ...table,
-              status: "reserved",
-              reservation: {
-                customerName: reservationData.customerName,
-                time: reservationData.time,
-                description: reservationData.description,
-                reservedAt: reservationData.reservedAt,
-              },
-            }
-          : table
-      );
-
-      return {
-        tables: updatedTables,
-        selectedTable: updatedTables.find((t) => t.table_num === tableNumber),
-      };
-    }),
 
   // Data Management
   fetchTables: async () => {

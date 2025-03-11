@@ -20,11 +20,10 @@ export const tableService = {
     return { table_num };
   },
 
-  async updateTableStatus(table_num, newStatus, reservationDetails = null) {
+  async updateTableStatus(table_num, newStatus) {
     const updateData = {
       table_num,
       status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
-      ...(reservationDetails && { reservation_details: reservationDetails }),
     };
 
     const response = await fetch(`${API_URL}/table-update`, {

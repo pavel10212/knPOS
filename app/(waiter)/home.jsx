@@ -7,6 +7,7 @@ import OrderItem from "../../components/OrderItem";
 import ReservedModal from "../../components/ReservedModal";
 import OrderHeader from "../../components/OrderHeader";
 import ActionButtons from "../../components/ActionButtons";
+import LoadingScreen from "../../components/LoadingScreen";
 import { tableStore } from "../../hooks/useStore";
 import { useHomeData } from "../../hooks/useHomeData";
 import { useSharedStore } from "../../hooks/useSharedStore";
@@ -16,13 +17,16 @@ import {
 } from "../../utils/orderUtils";
 
 const Home = () => {
-  useHomeData();
+  const { isLoading, loadingProgress, statusMessages } = useHomeData();
+  const globalLoading = useSharedStore(state => state.isLoading);
+  const loadingStatus = useSharedStore(state => state.loadingStatus);
+
   const selectedTable = tableStore((state) => state.selectedTable);
   const reservationModal = tableStore((state) => state.reservationModal);
   const setReservationModal = tableStore((state) => state.setReservationModal);
   const orders = useSharedStore((state) => state.orders);
   const [ordersForRender, setOrdersForRender] = useState([]);
-  
+
   useEffect(() => {
     if (selectedTable) {
       setOrdersForRender(findOrdersForTable(selectedTable.table_num, orders));
@@ -48,6 +52,17 @@ const Home = () => {
       />
     );
   };
+
+  // Display the loading screen during initial data loading
+  if (isLoading || globalLoading) {
+    return (
+      <LoadingScreen
+        message="Initializing System"
+        progress={loadingProgress}
+        statusMessages={statusMessages.length > 0 ? statusMessages : [loadingStatus]}
+      />
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">

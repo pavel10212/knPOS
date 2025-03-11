@@ -1,33 +1,36 @@
-import { Pressable, View } from 'react-native'
+import { View, ScrollView } from 'react-native'
+import React, { useCallback } from 'react'
 import TableComponent from './TableComponent'
-import StatusLegend from './StatusLegend'
-import { tableStore } from '../hooks/useStore'
-import { useSharedStore } from '../hooks/useSharedStore'
+import { useSharedStore } from '../hooks/useSharedStore';
 
-const TableList = ({ isEditing, onReserve }) => {
-    const setDropdownTable = tableStore((state) => state.setDropdownTable)
-    const tables = useSharedStore((state) => state.tables);
+const TableList = ({ isEditing, onSelectTable, onReserve }) => {
+  const tables = useSharedStore((state) => state.tables);
+  
+  const renderTables = useCallback(() => {
+    return tables.map((table) => {
+      return (
+        <TableComponent
+          key={table.table_id}
+          table_num={table.table_num}
+          table_id={table.table_id}
+          capacity={table.capacity}
+          status={table.status}
+          location={table.location}
+          rotation={table.rotation}
+          token={table.token}
+          onReserve={onReserve}
+        />
+      );
+    });
+  }, [tables, onReserve]);
 
-    return (
-        <Pressable
-            onPress={() => setDropdownTable(null)}
-            className="flex-1 bg-gray-100"
-        >
-            <StatusLegend />
-            <View className="flex-1">
-                <View className="relative flex-1">
-                    {tables.map((table) => (
-                        <TableComponent
-                            key={table.table_id}
-                            {...table}
-                            isEditing={isEditing}
-                            onReserve={onReserve}
-                        />
-                    ))}
-                </View>
-            </View>
-        </Pressable>
-    )
+  return (
+    <ScrollView horizontal={true}>
+      <View className="w-[900px] h-[700px] relative">
+        {renderTables()}
+      </View>
+    </ScrollView>
+  )
 }
 
 export default TableList

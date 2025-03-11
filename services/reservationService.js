@@ -18,11 +18,11 @@ export const reservationService = {
     }
   },
 
-  // New combined method in reservationService.js
+  // Updated method to use the new combined endpoint
   async fetchAllUpcomingReservations() {
     console.log("Fetching all upcoming reservations...");
     try {
-      const response = await fetch(`${API_URL}/reservations/all-upcoming`, {
+      const response = await fetch(`${API_URL}/reservations/upcoming-with-today`, {
         headers: {
           Authorization: `Bearer ${process.env.EXPO_PUBLIC_ADMIN_API_KEY}`,
         },

@@ -3,6 +3,7 @@ import React, {useState} from 'react'
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import icons from '../constants/icons';
 import { tableStore } from '../hooks/useStore';
+import { useReservationStore } from '../hooks/useReservationStore';
 
 const ReservedModal = ({ visible, onClose, tableNumber }) => {
     const [customerName, setCustomerName] = useState('');
@@ -10,6 +11,7 @@ const ReservedModal = ({ visible, onClose, tableNumber }) => {
     const [time, setTime] = useState('12:00');
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const createReservation = useReservationStore(state => state.createReservation);
 
     if (!visible) return null;
 
@@ -33,23 +35,51 @@ const ReservedModal = ({ visible, onClose, tableNumber }) => {
     };
 
     const handleConfirmAndReset = async () => {
-        const reservationDetails = {
-            customerName,
-            arrivalTime: time,
-            specialRequests: description,
-            reservedAt: new Date().toISOString()
-        };
-
         try {
-            await tableStore.getState().updateTableStatus(
-                tableNumber, 
-                'Reserved',
-                reservationDetails
+            // Create a proper date for the reservation time
+            const currentDate = new Date();
+            const [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+            const reservationDate = new Date(
+                currentDate.getFullYear(),
+                currentDate.getMonth(),
+                currentDate.getDate(),
+                hours,
+                minutes
             );
+            
+            // Add 2 hours for end time
+            const endTime = new Date(reservationDate);
+            endTime.setHours(endTime.getHours() + 2);
+            
+            // Create a proper reservation through the reservation service
+            const reservationData = {
+                customer_name: customerName,
+                customer_phone: 'N/A', // Required field
+                party_size: 2, // Default size 
+                table_id: tableNumber,
+                reservation_time: reservationDate.toISOString(),
+                end_time: endTime.toISOString(),
+                status: 'pending',
+                notes: description
+            };
+            
+            // Create the reservation record
+            await createReservation(reservationData);
+            
+            // Check if the reservation is within 2 hours from now
+            const currentTime = new Date();
+            const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
+            
+            if (reservationDate <= twoHoursFromNow) {
+                console.log(`Reservation at ${reservationDate.toLocaleTimeString()} is within 2 hours - marking table ${tableNumber} as Reserved immediately`);
+                // Immediately mark the table as Reserved since it's within 2 hours
+                await tableStore.getState().updateTableStatus(tableNumber, 'Reserved');
+            }
+            
             resetForm();
             onClose();
         } catch (error) {
-            console.error('Failed to update reservation:', error);
+            console.error('Failed to create reservation:', error);
         }
     };
 
