@@ -172,8 +172,9 @@ const NotificationsPanel = () => {
               onPress={togglePinPanel}
             >
               <MaterialIcons 
-                name={isPinned ? "push-pin" : "push-pin-outlined"} 
+                name={isPinned ? "push-pin" : "push-pin"} 
                 size={18} 
+                style={{ transform: [{ rotate: isPinned ? '0deg' : '45deg' }] }}
                 color={isPinned ? "#8390DA" : "#6b7280"}
               />
             </TouchableOpacity>
