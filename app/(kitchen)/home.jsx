@@ -331,7 +331,6 @@ const KitchenHome = () => {
 
     return (
         <View className="flex-1 bg-gray-50">
-            <Header />
             <Suspense fallback={<Text className="p-4">Loading orders...</Text>}>
                 <View className="flex-1">
                     <View className="px-6 py-4 bg-white shadow-sm">
