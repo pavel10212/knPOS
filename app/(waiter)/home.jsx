@@ -8,6 +8,7 @@ import ReservedModal from "../../components/ReservedModal";
 import OrderHeader from "../../components/OrderHeader";
 import ActionButtons from "../../components/ActionButtons";
 import LoadingScreen from "../../components/LoadingScreen";
+import NotificationIndicator from "../../components/NotificationIndicator";
 import { tableStore } from "../../hooks/useStore";
 import { useHomeData } from "../../hooks/useHomeData";
 import { useSharedStore } from "../../hooks/useSharedStore";
@@ -65,12 +66,13 @@ const Home = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex flex-row flex-1">
+    <SafeAreaView className="flex-1 bg-white" pointerEvents="box-none">
+      <View className="flex flex-row flex-1" pointerEvents="box-none">
         {/* Left side with Table List */}
         <View className="flex-1">
-          <View className="flex flex-row h-[60px] items-center justify-start border-hairline">
-            <Text className="ml-5 font-bold text-2xl">Table List</Text>
+          <View className="flex flex-row h-[60px] items-center justify-between border-hairline px-5">
+            <Text className="font-bold text-2xl">Table List</Text>
+            <NotificationIndicator />
           </View>
           <TableList isEditing={false} onReserve={handleReservation} />
         </View>

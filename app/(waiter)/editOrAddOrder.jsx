@@ -12,6 +12,7 @@ import MenuOrderItem from "../../components/menuOrderItem";
 import InventoryItem from "../../components/InventoryItem";
 import { orderService } from '../../services/orderService';
 import { qrService } from '../../services/qrService';
+import { useNotificationStore } from "../../hooks/useNotificationStore";
 
 const EditOrAddOrder = () => {
     const { order } = useLocalSearchParams();
@@ -21,6 +22,7 @@ const EditOrAddOrder = () => {
     const [temporaryOrder, setTemporaryOrder] = useState([]);
     const setOrders = useSharedStore((state) => state.setOrders);
     const menu = useSharedStore((state) => state.menu);
+    const [disableButton, setDisableButton] = useState(false);
     const orders = useSharedStore((state) => state.orders);
     const [activeTab, setActiveTab] = useState('menu');
 
@@ -180,6 +182,7 @@ const EditOrAddOrder = () => {
     }, [order, menu, inventory, existingOrder]);
 
     const handleFinishOrder = useCallback(async () => {
+        setDisableButton(true);
         if (!selectedTable || !temporaryOrder.length) return;
 
         try {
@@ -247,7 +250,7 @@ const EditOrAddOrder = () => {
             setTemporaryOrder([]);
             router.push("home");
 
-            Toast.show({
+            useNotificationStore.getState().addNotification({
                 type: "success",
                 text1: isEditMode ? "Order Updated" : "Order Created",
                 text2: isEditMode ?
@@ -257,7 +260,7 @@ const EditOrAddOrder = () => {
 
         } catch (error) {
             console.error("Error handling order:", error);
-            Toast.show({
+            useNotificationStore.getState().addNotification({
                 type: "error",
                 text1: "Error",
                 text2: `Failed to ${isEditMode ? 'update' : 'create'} order. Please try again.`,
@@ -432,6 +435,7 @@ const EditOrAddOrder = () => {
                         </Text>
                         <TouchableOpacity
                             className="bg-primary p-4 rounded-lg"
+                            disabled={disableButton}
                             onPress={() => handleFinishOrder()}
                         >
                             <Text className="text-white text-center font-bold text-lg">

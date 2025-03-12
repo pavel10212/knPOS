@@ -67,6 +67,7 @@ export const useReservationStore = create((set, get) => ({
         reservationData
       );
 
+
       set((state) => {
         // Get the date string for grouping (YYYY-MM-DD format)
         const reservationDate = new Date(newReservation.reservation_time)
@@ -111,6 +112,7 @@ export const useReservationStore = create((set, get) => ({
         id,
         reservationData
       );
+
 
       set((state) => {
         // Get the new date string for grouping
@@ -212,6 +214,7 @@ export const useReservationStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       await reservationService.deleteReservation(id);
+
 
       set((state) => {
         // Create a new upcoming reservations array without the deleted reservation
@@ -330,57 +333,57 @@ export const useReservationStore = create((set, get) => ({
   },
   checkTableAvailabilityLocal: (
     tableId,
-    startTime, 
+    startTime,
     endTime,
     excludeReservationId = null,
     bufferMinutes = 30
-) => {
+  ) => {
     const { upcomingReservations } = get();
-    
+
     // Convert times to Date objects for comparison
     const requestStart = new Date(startTime);
-    const requestEnd = endTime ? new Date(endTime) : 
-                      new Date(requestStart.getTime() + 2 * 60 * 60 * 1000);
-    
+    const requestEnd = endTime ? new Date(endTime) :
+      new Date(requestStart.getTime() + 2 * 60 * 60 * 1000);
+
     // Find any conflicting reservations
     const conflictingReservations = upcomingReservations.filter(reservation => {
-        // Skip this reservation if it's the one we're updating
-        if (excludeReservationId && reservation.reservation_id === excludeReservationId)
-            return false;
-        
-        // Skip if not for the requested table
-        if (reservation.table_id !== tableId) 
-            return false;
-        
-        // Skip if canceled
-        if (reservation.status === "canceled") 
-            return false;
-        
-        // Get reservation time range WITH buffer
-        const resStart = new Date(reservation.reservation_time);
-        const resEnd = reservation.end_time ? new Date(reservation.end_time) : 
-                       new Date(resStart.getTime() + 2 * 60 * 60 * 1000);
-        
-        // Add buffer to EXISTING reservation
-        const bufferMs = bufferMinutes * 60 * 1000;
-        const existingStartWithBuffer = new Date(resStart.getTime() - bufferMs);
-        const existingEndWithBuffer = new Date(resEnd.getTime() + bufferMs);
-        
-        // For debugging
-        console.log(`Comparing reservation at ${requestStart.toLocaleTimeString()} with existing at ${resStart.toLocaleTimeString()}`);
-        console.log(`Buffered existing: ${existingStartWithBuffer.toLocaleTimeString()} to ${existingEndWithBuffer.toLocaleTimeString()}`);
-        
-        // Check if the requested reservation overlaps with the existing reservation's buffered time
-        // Overlap occurs if the new reservation doesn't end before the buffered start
-        // or doesn't start after the buffered end
-        return !(requestEnd <= existingStartWithBuffer || requestStart >= existingEndWithBuffer);
+      // Skip this reservation if it's the one we're updating
+      if (excludeReservationId && reservation.reservation_id === excludeReservationId)
+        return false;
+
+      // Skip if not for the requested table
+      if (reservation.table_id !== tableId)
+        return false;
+
+      // Skip if canceled
+      if (reservation.status === "canceled")
+        return false;
+
+      // Get reservation time range WITH buffer
+      const resStart = new Date(reservation.reservation_time);
+      const resEnd = reservation.end_time ? new Date(reservation.end_time) :
+        new Date(resStart.getTime() + 2 * 60 * 60 * 1000);
+
+      // Add buffer to EXISTING reservation
+      const bufferMs = bufferMinutes * 60 * 1000;
+      const existingStartWithBuffer = new Date(resStart.getTime() - bufferMs);
+      const existingEndWithBuffer = new Date(resEnd.getTime() + bufferMs);
+
+      // For debugging
+      console.log(`Comparing reservation at ${requestStart.toLocaleTimeString()} with existing at ${resStart.toLocaleTimeString()}`);
+      console.log(`Buffered existing: ${existingStartWithBuffer.toLocaleTimeString()} to ${existingEndWithBuffer.toLocaleTimeString()}`);
+
+      // Check if the requested reservation overlaps with the existing reservation's buffered time
+      // Overlap occurs if the new reservation doesn't end before the buffered start
+      // or doesn't start after the buffered end
+      return !(requestEnd <= existingStartWithBuffer || requestStart >= existingEndWithBuffer);
     });
-    
+
     return {
-        available: conflictingReservations.length === 0,
-        conflictingReservations
+      available: conflictingReservations.length === 0,
+      conflictingReservations
     };
-}
+  }
 }));
 
 // Helper function to check if a date is today

@@ -10,6 +10,7 @@ import { router } from "expo-router";
 import { parseOrderDetails, createMenuItemsMap, getInitialCheckedItems, deduplicateOrders } from "../../utils/kitchenUtils";
 import { updateOrder } from "../../services/orderService";
 import { Ionicons } from "@expo/vector-icons";
+import LoadingScreen from "../../components/LoadingScreen";
 
 // Time formatter for order cards
 const formatTime = (timestamp) => {
@@ -151,7 +152,10 @@ const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck }) => {
 });
 
 const KitchenHome = () => {
-    useKitchenData();
+    const { isLoading, loadingProgress, statusMessages } = useKitchenData();
+    const globalLoading = useSharedStore(state => state.isLoading);
+    const loadingStatus = useSharedStore(state => state.loadingStatus);
+    
     const orders = useSharedStore((state) => state.orders);
     const menu = useSharedStore((state) => state.menu);
     const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn);
@@ -313,6 +317,17 @@ const KitchenHome = () => {
             )}
         </TouchableOpacity>
     );
+
+    // Display the loading screen during initial data loading
+    if (isLoading || globalLoading) {
+        return (
+            <LoadingScreen
+                message="Initializing Kitchen System"
+                progress={loadingProgress}
+                statusMessages={statusMessages.length > 0 ? statusMessages : [loadingStatus]}
+            />
+        );
+    }
 
     return (
         <View className="flex-1 bg-gray-50">

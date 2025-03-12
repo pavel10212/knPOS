@@ -3,6 +3,8 @@ import { loginStore } from "./useStore";
 import io from "socket.io-client";
 import Toast from "react-native-toast-message";
 import { useSharedStore } from "./useSharedStore";
+import { useReservationStore } from "./useReservationStore";
+import { useNotificationStore } from "./useNotificationStore";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
@@ -49,7 +51,8 @@ export const useSocketStore = create((set, get) => ({
       useSharedStore.getState().setOrders(updatedOrders);
 
       if (role === "waiter") {
-        Toast.show({
+        // Add to notification store only
+        useNotificationStore.getState().addNotification({
           type: "info",
           text1: "Order Updated",
           text2: `Order ${data.order_id} has been updated`,
@@ -70,7 +73,8 @@ export const useSocketStore = create((set, get) => ({
       setTables(newTables);
 
       if (role === "waiter") {
-        Toast.show({
+        // Add to notification store only
+        useNotificationStore.getState().addNotification({
           type: "info",
           text1: "Table Status Updated",
           text2: `Table ${data.table_num} is now ${data.status}`,
@@ -82,8 +86,9 @@ export const useSocketStore = create((set, get) => ({
       const role = loginStore.getState().role;
 
       if (role === "waiter") {
-        Toast.show({
-          type: "info",
+        // Add to notification store with higher visibility
+        useNotificationStore.getState().addNotification({
+          type: "warning",
           text1: "Waiter Alert",
           text2: "The kitchen has called for a waiter",
         });
@@ -99,10 +104,11 @@ export const useSocketStore = create((set, get) => ({
       )?.table_num;
 
       if (role === "waiter") {
-        Toast.show({
-          type: "info",
+        // Add to notification store with higher visibility
+        useNotificationStore.getState().addNotification({
+          type: "warning",
           text1: "Waiter Alert",
-          text2: `Table ${table_num} has called for a waiter`,
+          text2: `Table ${table_num || 'Unknown'} has called for a waiter`,
         });
       }
     });
@@ -118,7 +124,8 @@ export const useSocketStore = create((set, get) => ({
 
       setTables(newTables);
 
-      Toast.show({
+      // Add to notification store only
+      useNotificationStore.getState().addNotification({
         type: "info",
         text1: "Table Status Updated",
         text2: `Table ${data.table_num} token has been reset`,
@@ -142,11 +149,71 @@ export const useSocketStore = create((set, get) => ({
       const updatedOrders = [...currentOrders, processedOrder];
       useSharedStore.getState().setOrders(updatedOrders);
 
-      Toast.show({
+      // Add to notification store only
+      useNotificationStore.getState().addNotification({
         type: "success",
         text1: "New Order Received",
         text2: `Table ${data.table_num}`,
       });
+    });
+
+    // Reservation socket events
+    newSocket.on("new-reservation", (data) => {
+      console.log("New reservation received from socket:", data);
+      const reservationStore = useReservationStore.getState();
+      const role = loginStore.getState().role;
+
+      // Process the reservation - add to store states
+      const reservationDate = new Date(data.reservation_time).toISOString().split("T")[0];
+      const isForToday = isToday(data.reservation_time);
+
+      // Add to appropriate collections
+      reservationStore.fetchAllReservationData(true);
+
+      if (role === "waiter") {
+        // Add to notification store only
+        useNotificationStore.getState().addNotification({
+          type: "success",
+          text1: "New Reservation",
+          text2: `${data.customer_name} - ${new Date(data.reservation_time).toLocaleTimeString()}`,
+        });
+      }
+    });
+
+    newSocket.on("reservation-updated", (data) => {
+      console.log("Reservation update received from socket:", data);
+      const reservationStore = useReservationStore.getState();
+      const role = loginStore.getState().role;
+
+      // Process the reservation update - update in store
+      reservationStore.fetchAllReservationData(true);
+
+      if (role === "waiter") {
+        // Add to notification store only
+        useNotificationStore.getState().addNotification({
+          type: "info",
+          text1: "Reservation Updated",
+          text2: `${data.customer_name} - Table ${data.table_id}`,
+        });
+      }
+    });
+
+    newSocket.on("reservation-deleted", (data) => {
+      console.log("Reservation deletion received from socket:", data);
+      const reservationStore = useReservationStore.getState();
+      const role = loginStore.getState().role;
+
+      // Process the reservation deletion
+      reservationStore.fetchAllReservationData(true);
+
+      if (role === "waiter") {
+        // Add to notification store only
+        useNotificationStore.getState().addNotification({
+          type: "info",
+          text1: "Reservation Cancelled",
+          text2: `Reservation #${data.reservation_id} was deleted`,
+        });
+      }
     });
 
     set({ socket: newSocket });
@@ -191,7 +258,7 @@ export const useSocketStore = create((set, get) => ({
 
     socket.emit("kitchen-call-waiter", (error) => {
       if (error) {
-        Toast.show({
+        useNotificationStore.getState().addNotification({
           type: "error",
           text1: "Error",
           text2: "Failed to call waiter",
@@ -221,4 +288,16 @@ export const useSocketStore = create((set, get) => ({
     console.log(`Emitting local-order-updated for order ${orderId}`);
     socket.emit("local-order-updated", { orderId });
   },
+
 }));
+
+// Helper function to check if a date is today
+function isToday(dateString) {
+  const date = new Date(dateString);
+  const today = new Date();
+  return (
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+}
