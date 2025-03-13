@@ -182,16 +182,32 @@ const EditOrAddOrder = () => {
     }, [order, menu, inventory, existingOrder]);
 
     const handleFinishOrder = useCallback(async () => {
-        setDisableButton(true);
-        if (!selectedTable || !temporaryOrder.length) return;
-
         try {
+            console.log("Starting order submission process...");
+            console.log("Current button state:", disableButton ? "Disabled" : "Enabled");
+
+            setDisableButton(true);
+
+            if (!selectedTable) {
+                console.log("No table selected, aborting order submission");
+                setDisableButton(false);
+                return;
+            }
+
+            if (!temporaryOrder.length) {
+                console.log("No items in order, aborting order submission");
+                setDisableButton(false);
+                return;
+            }
+
             // Check if table is Available and update status
             if (!isEditMode && selectedTable.status === "Available") {
+                console.log(`Table status is Available, generating token for table ${selectedTable.table_num}`);
                 await qrService.generateToken(selectedTable.table_num);
                 await updateTableStatus(selectedTable.table_num, "Unavailable");
             }
 
+            console.log("Preparing order details...");
             const orderDetails = {
                 order_id: isEditMode ? order : null,
                 table_num: selectedTable.table_num,
@@ -211,6 +227,7 @@ const EditOrAddOrder = () => {
                 ),
             };
 
+            console.log("Submitting order to service...");
             // Store the result of the API call
             const savedOrder = await (isEditMode
                 ? orderService.updateOrder(order, {
@@ -220,6 +237,8 @@ const EditOrAddOrder = () => {
                     order_details: orderDetails.order_details,
                 })
                 : orderService.createOrder(orderDetails));
+
+            console.log("Order saved successfully:", savedOrder);
 
             // Safe access of order_id with proper error handling
             const newOrderId = Array.isArray(savedOrder) && savedOrder.length > 0 ?
@@ -248,6 +267,8 @@ const EditOrAddOrder = () => {
             setOrders(updatedOrders);
             useInventoryStore.getState().fetchInventory();
             setTemporaryOrder([]);
+
+            console.log("Order completed successfully, navigating to home");
             router.push("home");
 
             useNotificationStore.getState().addNotification({
@@ -265,6 +286,10 @@ const EditOrAddOrder = () => {
                 text1: "Error",
                 text2: `Failed to ${isEditMode ? 'update' : 'create'} order. Please try again.`,
             });
+        } finally {
+            // Always ensure the button is re-enabled, even if there's an error or success
+            console.log("Resetting button state to enabled");
+            setDisableButton(false);
         }
     }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders]);
 

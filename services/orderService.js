@@ -100,7 +100,35 @@ export const updateOrderWithPayment = async (
     completion_date_time: new Date().toISOString(),
     order_details: orderDetails,
   };
-  return orderService.updateOrder(orderId, orderData);
+
+  try {
+    const response = await fetch(
+      `${API_URL}/orders-update?emitFromServer=false`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.EXPO_PUBLIC_ADMIN_API_KEY}`,
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          ...orderData
+        }),
+      }
+    );
+
+    if (!response.ok) throw new Error("Failed to update order");
+    
+    const result = await response.json();
+    
+    // Emit socket event to notify all clients of the update
+    useSocketStore.getState().emitLocalOrderUpdated(orderId);
+    
+    return result;
+  } catch (error) {
+    console.error("Error updating order with payment:", error);
+    throw error;
+  }
 };
 
 export const updateOrderDelivery = async (order, updatedOrderDetails) => {

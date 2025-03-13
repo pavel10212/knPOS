@@ -1,10 +1,17 @@
-import { View, ScrollView } from 'react-native'
+import { View, ScrollView, TouchableWithoutFeedback } from 'react-native'
 import React, { useCallback } from 'react'
 import TableComponent from './TableComponent'
 import { useSharedStore } from '../hooks/useSharedStore';
+import { tableStore } from '../hooks/useStore';
 
 const TableList = ({ isEditing, onSelectTable, onReserve }) => {
   const tables = useSharedStore((state) => state.tables);
+  const setDropdownTable = tableStore((state) => state.setDropdownTable);
+  
+  const handleOutsideClick = () => {
+    // Close any open dropdown when clicking outside
+    setDropdownTable(null);
+  };
   
   const renderTables = useCallback(() => {
     return tables.map((table) => {
@@ -25,11 +32,13 @@ const TableList = ({ isEditing, onSelectTable, onReserve }) => {
   }, [tables, onReserve]);
 
   return (
-    <ScrollView horizontal={true}>
-      <View className="w-[900px] h-[700px] relative">
-        {renderTables()}
-      </View>
-    </ScrollView>
+    <TouchableWithoutFeedback onPress={handleOutsideClick}>
+      <ScrollView horizontal={true}>
+        <View className="w-[900px] h-[700px] relative">
+          {renderTables()}
+        </View>
+      </ScrollView>
+    </TouchableWithoutFeedback>
   )
 }
 

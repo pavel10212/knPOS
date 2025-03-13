@@ -68,10 +68,17 @@ const QRModal = ({ visible, onClose, table_num }) => {
             setIsLoading(true);
             setError(null);
             try {
+                // Get current table status
+                const tableStatus = tableStore.getState().tables.find(t => String(t.table_num) === String(table_num))?.status;
+                
                 const { url } = await qrService.generateToken(table_num);
                 if (!url) throw new Error('Invalid QR code data');
                 setQrValue(url);
-                await updateTableStatus(table_num, "Unavailable");
+                
+                // Only update status if not already unavailable
+                if (tableStatus !== "Unavailable") {
+                    await updateTableStatus(table_num, "Unavailable");
+                }
             } catch (error) {
                 console.error('Operation failed:', error);
                 setError('Failed to generate QR code. Please try again.');

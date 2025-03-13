@@ -87,6 +87,7 @@ const Order = () => {
         }
     };
 
+
     const tableList = tables
         .map((table) => {
             const tableOrders = findAllOrdersForTable(table.table_num, orders)

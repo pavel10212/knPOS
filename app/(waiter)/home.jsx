@@ -1,10 +1,9 @@
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Text, View, TouchableWithoutFeedback } from "react-native";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TableList from "../../components/TableList";
 import QRModal from "../../components/QRModal";
 import OrderItem from "../../components/OrderItem";
-import ReservedModal from "../../components/ReservedModal";
 import OrderHeader from "../../components/OrderHeader";
 import ActionButtons from "../../components/ActionButtons";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -16,28 +15,51 @@ import {
   doesTableHaveOrders,
   findOrdersForTable,
 } from "../../utils/orderUtils";
+import { router } from "expo-router";
 
 const Home = () => {
   const { isLoading, loadingProgress, statusMessages } = useHomeData();
   const globalLoading = useSharedStore(state => state.isLoading);
   const loadingStatus = useSharedStore(state => state.loadingStatus);
+  const initializeOrders = useSharedStore(state => state.initializeOrders);
 
   const selectedTable = tableStore((state) => state.selectedTable);
-  const reservationModal = tableStore((state) => state.reservationModal);
-  const setReservationModal = tableStore((state) => state.setReservationModal);
+  const setDropdownTable = tableStore((state) => state.setDropdownTable);
   const orders = useSharedStore((state) => state.orders);
   const [ordersForRender, setOrdersForRender] = useState([]);
 
+  // Initialize orders when component mounts
+  useEffect(() => {
+    initializeOrders();
+  }, []);
+
   useEffect(() => {
     if (selectedTable) {
-      setOrdersForRender(findOrdersForTable(selectedTable.table_num, orders));
+      const ordersList = orders || [];
+      setOrdersForRender(findOrdersForTable(selectedTable.table_num, ordersList));
     }
   }, [selectedTable, orders]);
 
   const [isQrModalVisible, setQrModalVisible] = useState(false);
 
-  const handleReservation = (tableNumber) => {
-    setReservationModal({ visible: true, tableNumber });
+  // Function to handle direct navigation to reservation page
+  const handleDirectReservation = (tableNumber) => {
+    // Close any open dropdown
+    setDropdownTable(null);
+    
+    // Navigate directly to the reservation page
+    router.push({
+      pathname: "/reservation",
+      params: {
+        createNew: true,
+        selectedTableId: tableNumber,
+      }
+    });
+  };
+
+  // Handle outside click to close dropdowns
+  const handleOutsideClick = () => {
+    setDropdownTable(null);
   };
 
   const renderOrder = ({ item }) => {
@@ -67,49 +89,46 @@ const Home = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-white" pointerEvents="box-none">
-      <View className="flex flex-row flex-1" pointerEvents="box-none">
-        {/* Left side with Table List */}
-        <View className="flex-1">
-          <View className="flex flex-row h-[60px] items-center justify-between border-hairline px-5">
-            <Text className="font-bold text-2xl">Table List</Text>
-            <NotificationIndicator />
-          </View>
-          <TableList isEditing={false} onReserve={handleReservation} />
-        </View>
-
-        {/* Right side Orders section */}
-        <View className="w-[300px] bg-white border-hairline flex flex-col">
-          <OrderHeader selectedTable={selectedTable} />
+      <TouchableWithoutFeedback onPress={handleOutsideClick}>
+        <View className="flex flex-row flex-1" pointerEvents="box-none">
+          {/* Left side with Table List */}
           <View className="flex-1">
-            {selectedTable ? (
-              doesTableHaveOrders(selectedTable.table_num, orders) ? (
-                <FlatList
-                  data={ordersForRender}
-                  renderItem={renderOrder}
-                  keyExtractor={(item) => item.order_id.toString()}
-                  contentContainerStyle={{ padding: 16 }}
-                  showsVerticalScrollIndicator={true}
-                />
-              ) : (
-                <Text className="p-4">No orders yet</Text>
-              )
-            ) : (
-              <Text className="p-4">Select a table to view orders</Text>
-            )}
+            <View className="flex flex-row h-[60px] items-center justify-between border-hairline px-5">
+              <Text className="font-bold text-2xl">Table List</Text>
+              <NotificationIndicator />
+            </View>
+            <TableList isEditing={false} onReserve={handleDirectReservation} />
           </View>
-          {selectedTable ? (
-            <ActionButtons
-              onPrintQR={() => setQrModalVisible(true)}
-              order={selectedTable?.orders || []}
-            />
-          ) : null}
+
+          {/* Right side Orders section */}
+          <View className="w-[300px] bg-white border-hairline flex flex-col">
+            <OrderHeader selectedTable={selectedTable} />
+            <View className="flex-1">
+              {selectedTable ? (
+                doesTableHaveOrders(selectedTable.table_num, orders) ? (
+                  <FlatList
+                    data={ordersForRender}
+                    renderItem={renderOrder}
+                    keyExtractor={(item) => item.order_id.toString()}
+                    contentContainerStyle={{ padding: 16 }}
+                    showsVerticalScrollIndicator={true}
+                  />
+                ) : (
+                  <Text className="p-4">No orders yet</Text>
+                )
+              ) : (
+                <Text className="p-4">Select a table to view orders</Text>
+              )}
+            </View>
+            {selectedTable ? (
+              <ActionButtons
+                onPrintQR={() => setQrModalVisible(true)}
+                order={selectedTable?.orders || []}
+              />
+            ) : null}
+          </View>
         </View>
-      </View>
-      <ReservedModal
-        visible={reservationModal.visible}
-        tableNumber={reservationModal.tableNumber}
-        onClose={() => setReservationModal({ visible: false, tableNumber: null })}
-      />
+      </TouchableWithoutFeedback>
 
       <QRModal
         visible={isQrModalVisible}

@@ -14,6 +14,7 @@ const TableComponent = ({
     location,
     rotation,
     token,
+    onReserve,
 }) => {
     const SCALE_FACTOR = 0.8;
     const OFFSET_X = 30;
@@ -82,9 +83,7 @@ const TableComponent = ({
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-                    const endTime = res.end_time ?
-                        new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
-                        "unspecified end time";
+                    const endTime = res.end_time ? new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "unspecified end time";
 
                     return `${startTime} - ${endTime} (${res.customer_name})`;
                 }).join("\n");
@@ -97,7 +96,7 @@ const TableComponent = ({
                 return;
             }
 
-            // If no conflicts, navigate to reservation page
+            // Always navigate directly to the reservation page
             router.push({
                 pathname: "/reservation",
                 params: {
@@ -205,9 +204,7 @@ const TableComponent = ({
         };
     };
 
-    const getCounterRotation = () => ({
-        transform: [{ rotate: `${-(rotation || 0)}deg` }]
-    });
+    const getCounterRotation = () => ({ transform: [{ rotate: `${-(rotation || 0)}deg` }] });
 
     const handleOutsideClick = () => {
         setDropdownTable(null);
@@ -292,15 +289,29 @@ const TableComponent = ({
                     width: 160,
                     zIndex: 999
                 }}>
-                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Available')}>
-                        <Text>Available</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Reserved')}>
-                        <Text>Reserved</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Unavailable')}>
-                        <Text>Unavailable</Text>
-                    </TouchableOpacity>
+                    {/* TouchableWithoutFeedback wrapper to stop event propagation */}
+                    <TouchableWithoutFeedback onPress={(e) => {
+                        // Prevent the click from reaching parent handlers
+                        e.stopPropagation();
+                    }}>
+                        <View>
+                            {/* Only show Available option if the table is not already available */}
+                            {status !== 'Available' && (
+                                <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Available')}>
+                                    <Text>Available</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Reserved')}>
+                                <Text>Reserved</Text>
+                            </TouchableOpacity>
+                            {/* Only show Unavailable option if the table is not already unavailable */}
+                            {status !== 'Unavailable' && (
+                                <TouchableOpacity className="p-2" onPress={() => handleStatusChange('Unavailable')}>
+                                    <Text>Unavailable</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </TouchableWithoutFeedback>
                 </View>
             )}
 

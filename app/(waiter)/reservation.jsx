@@ -18,7 +18,7 @@ import { EmptyState } from '../../components/reservation/EmptyState';
 import { formatDate } from '../../utils/reservationUtils';
 import { format } from 'date-fns';
 import { tableStore } from "../../hooks/useStore";
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 
 const Reservation = () => {
     // Get URL parameters
@@ -40,6 +40,8 @@ const Reservation = () => {
     const [isEndDatePickerVisible, setEndDatePickerVisible] = useState(false);
     const scrollViewRef = useRef(null);
     const tables = useSharedStore(state => state.tables);
+    const orders = useSharedStore(state => state.orders);
+    const selectTable = tableStore((state) => state.selectTable);
     const [availableTables, setAvailableTables] = useState([]);
     const [checkingAvailability, setCheckingAvailability] = useState(false);
 
@@ -326,9 +328,76 @@ const Reservation = () => {
 
     const handleStatusChange = async (reservationId, newStatus) => {
         try {
+            // First, get the reservation details to access table information
+            const allReservations = [...todayReservations];
+            Object.values(upcomingGroupedByDate).forEach(dateReservations => {
+                allReservations.push(...dateReservations);
+            });
+            
+            const reservation = allReservations.find(r => r.reservation_id === reservationId);
+            if (!reservation) {
+                throw new Error("Reservation not found");
+            }
+            
+            const tableId = reservation.table_id;
+            const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+
+            // Special handling for 'completed' status - always route through payment
+            if (newStatus === 'completed') {
+                // Always select the table and navigate to payment
+                const activeOrders = orders.filter(
+                    order => String(order.table_num) === String(tableNum) && order.order_status !== 'Completed'
+                );
+                
+                // Select the table
+                selectTable({
+                    table_num: tableNum,
+                    orders: activeOrders,
+                    status: 'Unavailable',
+                });
+                
+                // If there are no active orders, show a message
+                if (activeOrders.length === 0) {
+                    Alert.alert(
+                        "No Active Orders",
+                        "This table has no active orders. You will be redirected to the payment page to complete the process.",
+                        [{ text: "OK" }]
+                    );
+                }
+                
+                // Navigate to payment page
+                router.push('/payment');
+                return;
+            }
+            
+            // Update reservation status for other statuses
             await updateReservationStatus(reservationId, newStatus);
-            fetchTodayReservations(); // Refresh after update
+            
+            // Then update table status based on the new reservation status
+            if (newStatus === 'canceled') {
+                // When canceled, mark table as Available
+                console.log(`Marking table ${tableNum} as Available after canceling reservation`);
+                try {
+                    await tableStore.getState().updateTableStatus(tableNum, 'Available');
+                } catch (tableError) {
+                    console.error("Error updating table status:", tableError);
+                    Alert.alert("Warning", `Reservation marked as ${newStatus}, but failed to update table status to Available`);
+                }
+            } else if (newStatus === 'seated') {
+                // When seated, mark table as Unavailable (occupied)
+                console.log(`Marking table ${tableNum} as Unavailable after seating reservation`);
+                try {
+                    await tableStore.getState().updateTableStatus(tableNum, 'Unavailable');
+                } catch (tableError) {
+                    console.error("Error updating table status:", tableError);
+                    Alert.alert("Warning", `Reservation marked as seated, but failed to update table status to Unavailable`);
+                }
+            }
+            
+            // Refresh the reservation data
+            fetchTodayReservations();
         } catch (error) {
+            console.error("Error in handleStatusChange:", error);
             Alert.alert("Error", "Failed to update reservation status");
         }
     };
@@ -409,7 +478,7 @@ const Reservation = () => {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-                    const endTime = res.end_time ?
+                    const endTime = res.end_time ? 
                         new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
                         "unspecified end time";
 
@@ -514,7 +583,7 @@ const Reservation = () => {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-                    const endTime = res.end_time ?
+                    const endTime = res.end_time ? 
                         new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
                         "unspecified end time";
 
@@ -579,13 +648,23 @@ const Reservation = () => {
                 }
             }
 
+            // Close the new reservation modal
             setShowNewReservationModal(false);
-            fetchTodayReservations();
+            
+            // Clear params processed flags to prevent edit modal from showing
+            paramsProcessedRef.current.createNew = false;
+            paramsProcessedRef.current.viewReservation = false;
+            
+            // Reset URL params to prevent unwanted modal openings
+            router.replace('/reservation');
+            
+            // Refresh reservations data
+            await fetchTodayReservations();
+
         } catch (error) {
             Alert.alert("Error", "Failed to create reservation");
         }
     };
-
 
 
 
@@ -670,53 +749,49 @@ const Reservation = () => {
     useEffect(() => {
         // If we have data and there are URL parameters
         if (!loading && params) {
-            // Case 1: We're viewing a specific reservation
-            if (params.viewReservation === 'true' && params.reservationId && 
-                !paramsProcessedRef.current.viewReservation) {
-                
-                paramsProcessedRef.current.viewReservation = true;
-                console.log(`Looking for reservation ID: ${params.reservationId}`);
-                
-                // Find all reservations (combine today and all upcoming)
-                const allReservations = [];
-                todayReservations.forEach(res => allReservations.push(res));
-                
-                // Add all reservations from upcomingGroupedByDate
-                Object.values(upcomingGroupedByDate).forEach(reservationsForDate => {
-                    reservationsForDate.forEach(res => allReservations.push(res));
-                });
-                
-                // Find the target reservation
-                const targetReservation = allReservations.find(res => 
-                    String(res.reservation_id) === String(params.reservationId)
-                );
-                
-                if (targetReservation) {
-                    console.log('Found reservation, opening edit modal');
-                    handleEditReservation(targetReservation);
+            // Only process if neither flag is set
+            if (!paramsProcessedRef.current.createNew && !paramsProcessedRef.current.viewReservation) {
+                // Case 1: Creating a new reservation with pre-selected table (handle this first)
+                if (params.createNew === 'true' && params.selectedTableId) {
+                    paramsProcessedRef.current.createNew = true;
+                    console.log(`Creating new reservation for table ID: ${params.selectedTableId}`);
+                    
+                    // Set the form with the selected table and open modal
+                    setReservationForm(prev => ({
+                        ...prev,
+                        table_id: params.selectedTableId
+                    }));
+                    
+                    // Open the modal after a short delay to ensure the form is updated
+                    setTimeout(() => {
+                        setShowNewReservationModal(true);
+                    }, 100);
+                }
+                // Case 2: Viewing a specific reservation (only if not creating new)
+                else if (params.viewReservation === 'true' && params.reservationId) {
+                    paramsProcessedRef.current.viewReservation = true;
+                    console.log(`Looking for reservation ID: ${params.reservationId}`);
+                    
+                    // Find all reservations (combine today and all upcoming)
+                    const allReservations = [
+                        ...todayReservations,
+                        ...Object.values(upcomingGroupedByDate).flat()
+                    ];
+                    
+                    // Find the target reservation
+                    const targetReservation = allReservations.find(res => 
+                        String(res.reservation_id) === String(params.reservationId)
+                    );
+                    
+                    if (targetReservation) {
+                        console.log('Found reservation, opening edit modal');
+                        handleEditReservation(targetReservation);
+                    }
                 }
             }
-            
-            // Case 2: Creating a new reservation with pre-selected table
-            else if (params.createNew === 'true' && params.selectedTableId && 
-                     !paramsProcessedRef.current.createNew) {
-                
-                paramsProcessedRef.current.createNew = true;
-                console.log(`Creating new reservation for table ID: ${params.selectedTableId}`);
-                
-                // Set the form with the selected table and open modal
-                setReservationForm(prev => ({
-                    ...prev,
-                    table_id: params.selectedTableId
-                }));
-                
-                // Open the modal after a short delay to ensure the form is updated
-                setTimeout(() => {
-                    setShowNewReservationModal(true);
-                }, 100);
-            }
         }
-    }, [loading, params, todayReservations, upcomingGroupedByDate]);
+    }, [loading, todayReservations, upcomingGroupedByDate]);
+    // ^ Remove 'params' from the dependency array to prevent re-triggering on status changes
 
     // Reset the params processed flag when the modals are closed
     useEffect(() => {
@@ -849,7 +924,8 @@ const Reservation = () => {
                 <ScrollView
                     className="flex-1 px-6 pt-2"
                     ref={scrollViewRef}
-                    showsVerticalScrollIndicator={false}>
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="always">
 
                     <DateNavigation
                         dateOptions={dateOptions}

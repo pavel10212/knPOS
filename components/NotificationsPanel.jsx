@@ -12,6 +12,7 @@ const NotificationsPanel = () => {
     markAllAsRead,
     markAsRead,
     removeNotification,
+    clearNotifications,
   } = useNotificationStore();
   const unreadCount = notifications.filter(n => !n.read).length;
   const { width } = useWindowDimensions();
@@ -160,12 +161,20 @@ const NotificationsPanel = () => {
           </View>
           <View className="flex-row">
             {notifications.length > 0 && (
-              <TouchableOpacity 
-                className="p-1 mr-1"
-                onPress={markAllAsRead}
-              >
-                <MaterialIcons name="done-all" size={18} color="#8390DA" />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity 
+                  className="p-1 mr-1"
+                  onPress={markAllAsRead}
+                >
+                  <MaterialIcons name="done-all" size={18} color="#8390DA" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  className="p-1 mr-1"
+                  onPress={clearNotifications}
+                >
+                  <MaterialIcons name="clear-all" size={18} color="#8390DA" />
+                </TouchableOpacity>
+              </>
             )}
             <TouchableOpacity 
               className="p-1 mr-1"

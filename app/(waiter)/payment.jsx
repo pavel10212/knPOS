@@ -10,6 +10,7 @@ import { useSharedStore } from "../../hooks/useSharedStore";
 import DiscountButton from "../../components/DiscountButton";
 import { initializePrinter, printReceipt } from '../../utils/printerUtil';
 import { updateOrderWithPayment } from '../../services/orderService';
+import { useReservationStore } from "../../hooks/useReservationStore";
 
 const Payment = () => {
   const orders = useSharedStore((state) => state.orders);
@@ -18,11 +19,13 @@ const Payment = () => {
   const menu = useSharedStore((state) => state.menu);
   const setOrders = useSharedStore((state) => state.setOrders);
   const inventory = useSharedStore((state) => state.inventory);
+  // Add reservation store to access its functions
+  const { todayReservations, upcomingGroupedByDate, updateReservationStatus } = useReservationStore();
 
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [discount, setDiscount] = useState(0);
   const [cashReceived, setCashReceived] = useState(0);
-
+  const [disableButton, setDisableButton] = useState(false);
 
   const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20, 50];
   const CASH_AMOUNTS = [100, 200, 300, 500];
@@ -133,22 +136,68 @@ const Payment = () => {
 
   const { subtotal, serviceCharge, discountAmount, vat, total } = calculations;
 
+  // Find active reservation for the current table
+  const findActiveReservation = useCallback(() => {
+    if (!selectedTable || !selectedTable.table_num) return null;
+    
+    console.log(`Looking for active reservation for table ${selectedTable.table_num}`);
+    
+    // Combine all reservations for easier searching
+    const allReservations = [];
+    if (todayReservations && todayReservations.length) {
+      console.log(`Found ${todayReservations.length} reservations for today`);
+      allReservations.push(...todayReservations);
+    }
+    
+    if (upcomingGroupedByDate) {
+      Object.values(upcomingGroupedByDate).forEach(dateReservations => {
+        allReservations.push(...dateReservations);
+      });
+    }
+    
+    console.log(`Total reservations to search: ${allReservations.length}`);
+    
+    // Find any reservation for this table that's in 'seated' status
+    const tableReservations = allReservations.filter(res => {
+      // Find matching table_id and correct status
+      const tableMatch = res.table_id === selectedTable.table_id || 
+                         res.table_num === selectedTable.table_num ||
+                         String(res.table_id) === String(selectedTable.table_num);
+      
+      const statusMatch = res.status === 'seated';
+      
+      if (tableMatch && statusMatch) {
+        console.log(`Found matching reservation: ${res.reservation_id} for ${res.customer_name}`);
+      }
+      
+      return tableMatch && statusMatch;
+    });
+    
+    if (tableReservations.length > 0) {
+      console.log(`Found ${tableReservations.length} active reservations for this table`);
+      return tableReservations[0]; // Return the first matching reservation
+    }
+    
+    console.log('No active reservations found for this table');
+    return null;
+  }, [selectedTable, todayReservations, upcomingGroupedByDate]);
+
   // Optimize finish payment callback
-  const finishPayment = useCallback(async () => {
-    if (!selectedMethod) {
-      Alert.alert("Error", "Please select a payment method");
-      return;
-    }
-
-    if (selectedMethod === "cash" && cashReceived < calculations.total) {
-      Alert.alert("Error", "Insufficient cash received");
-      return;
-    }
-
+const finishPayment = useCallback(async () => {
     try {
+      console.log("Starting order submission process...");
+      console.log("Current button state:", disableButton ? "Disabled" : "Enabled");
+      
+      setDisableButton(true);
+      
+      if (!selectedTable) {
+        console.log("No table selected, aborting order submission");
+        setDisableButton(false);
+        return;
+      }
+      
       // Create a map of orderItems for quick lookups
       const orderItemsMap = orderItems.reduce((acc, item) => {
-        // Handle items with multiple related order IDs
         const orderIds = item.relatedOrderIds 
           ? [item.originalOrderId, ...item.relatedOrderIds] 
           : [item.originalOrderId];
@@ -160,30 +209,19 @@ const Payment = () => {
         return acc;
       }, {});
 
+      // First, update all orders to completed status
       const updatedOrders = await Promise.all(
         parsedOrder.map(async (order) => {
-          const relevantItems = orderItemsMap[order.order_id] || [];
-          
           const updatedOrderDetails = JSON.stringify(
-            order.order_details.map((orderDetail) => {
-              // Find matching item either by inventory_item_id or menu_item_id
-              const matchingItem = relevantItems.find(
-                (item) =>
-                  (orderDetail.type === 'inventory' && 
-                   item.originalInventoryItemId === orderDetail.inventory_item_id) ||
-                  ((!orderDetail.type || orderDetail.type === 'menu') && 
-                   item.originalMenuItemId === orderDetail.menu_item_id)
-              );
-              
-              // If found matching item, use its quantity, otherwise use original quantity
-              return {
-                status: "completed",
-                quantity: orderDetail.quantity,
-                menu_item_id: orderDetail.menu_item_id,
-                inventory_item_id: orderDetail.inventory_item_id,
-                type: orderDetail.type || 'menu'
-              };
-            })
+            order.order_details.map((orderDetail) => ({
+              ...orderDetail,
+              status: "completed",
+              menu_item_id: orderDetail.menu_item_id,
+              inventory_item_id: orderDetail.inventory_item_id,
+              type: orderDetail.type || 'menu',
+              quantity: orderDetail.quantity,
+              request: orderDetail.request || ""
+            }))
           );
 
           return await updateOrderWithPayment(order.order_id, updatedOrderDetails, {
@@ -192,25 +230,32 @@ const Payment = () => {
         })
       );
 
-      setOrders([
-        ...orders.filter((order) => !parsedOrder.includes(order)),
-        ...updatedOrders,
-      ]);
+      // Update orders in the store to reflect completed status
+      setOrders(prevOrders => {
+        const nonTableOrders = prevOrders.filter(order => !parsedOrder.find(po => po.order_id === order.order_id));
+        return [...nonTableOrders, ...updatedOrders];
+      });
 
+      // Check for active reservation for this table and mark it as completed
+      const activeReservation = findActiveReservation();
+      if (activeReservation) {
+        console.log(`Marking reservation ${activeReservation.reservation_id} as completed after payment`);
+        await updateReservationStatus(activeReservation.reservation_id, 'completed');
+      }
+
+      // Mark the table as Available again
       await resetTableToken(selectedTable.table_num);
       router.push("/home");
+
     } catch (error) {
-      console.error("Error updating orders:", error);
+      console.error("Error handling order:", error);
       Alert.alert("Error", "Failed to complete payment");
+    } finally {
+      // Always ensure the button is re-enabled, even if there's an error
+      console.log("Resetting button state to enabled");
+      setDisableButton(false);
     }
-  }, [
-    selectedMethod,
-    cashReceived,
-    calculations.total,
-    parsedOrder,
-    orderItems,
-    selectedTable,
-  ]);
+  }, [selectedTable, parsedOrder, orderItems, calculations.total, selectedMethod, findActiveReservation, updateReservationStatus]);
 
   const handlePrintReceipt = async () => {
     try {
@@ -261,7 +306,7 @@ const Payment = () => {
             <View className="ml-8">
               <Text className="text-2xl font-bold">Order Details</Text>
             </View>
-            <Text className="text-gray-500">Table {selectedTable?.number}</Text>
+            <Text className="text-gray-500">Table {selectedTable?.table_num}</Text>
           </View>
           <View className="flex-1 m-5 rounded-lg">
             <View className="flex flex-row justify-between rounded-t-lg p-4 bg-[#EAF0F0]">
@@ -329,6 +374,7 @@ const Payment = () => {
                       onSelect={setDiscount}
                     />
                   ))}
+
                 </View>
                 {selectedMethod === "cash" && (
                   <View className="w-full bg-[#EAF0F0] p-4 rounded-lg space-y-6">
@@ -380,45 +426,32 @@ const Payment = () => {
 
               {/* Summary */}
               <View className="mt-2">
-                {[
-                  { label: "Subtotal", value: subtotal },
+                {[{ label: "Subtotal", value: subtotal },
                   { label: "Service Charge", value: serviceCharge },
-                  {
-                    label: `Discount (${discount}%)`,
-                    value: -discountAmount,
-                    isNegative: true,
-                  },
+                  { label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true },
                   { label: "VAT (10%)", value: vat },
                 ].map(({ label, value, isNegative }) => (
                   <View key={label} className="flex flex-row justify-between">
                     <Text className="text-gray-600 text-sm">{label}</Text>
-                    <Text
-                      className={`font-medium text-sm ${isNegative ? "text-red-500" : ""
-                        }`}
-                    >
+                    <Text className={`font-medium text-sm ${isNegative ? "text-red-500" : ""
+                      }`}>
                       {isNegative ? "-" : ""}${Math.abs(value).toFixed(2)}
                     </Text>
                   </View>
                 ))}
                 <View className="flex flex-row justify-between pt-1 border-t border-dashed">
                   <Text className="font-bold">Total</Text>
-                  <Text className="font-bold text-[#D89F65]">
-                    ${total.toFixed(2)}
-                  </Text>
+                  <Text className="font-bold text-[#D89F65]">${total.toFixed(2)}</Text>
                 </View>
 
                 {selectedMethod === "cash" && cashReceived > 0 && (
                   <View className="flex flex-row justify-between pt-1 border-t border-dashed">
-                    <Text
-                      className={`font-bold ${cashReceived > total ? "text-green-500" : "text-red-500"
-                        }`}
-                    >
+                    <Text className={`font-bold ${cashReceived > total ? "text-green-500" : "text-red-500"
+                      }`}>
                       Change
                     </Text>
-                    <Text
-                      className={`${cashReceived > total ? "text-green-500" : "text-red-500"
-                        }`}
-                    >
+                    <Text className={`${cashReceived > total ? "text-green-500" : "text-red-500"
+                      }`}>
                       ${Math.abs(cashReceived - total).toFixed(2)}
                     </Text>
                   </View>
