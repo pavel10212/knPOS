@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from "react-native";
 import QRCode from 'react-native-qrcode-svg';
 import { tableStore } from "../hooks/useStore";
+import { useSharedStore } from "../hooks/useSharedStore";
 import { initializePrinter, printQRCode } from '../utils/printerUtil';
 import { qrService } from '../services/qrService';
 
@@ -9,9 +10,12 @@ const QRModal = ({ visible, onClose, table_num }) => {
     const [qrValue, setQrValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    // Use useRef instead of state for the QRCode ref
     const qrRef = useRef(null);
+    const hasGeneratedRef = useRef(false);
+    const tables = useSharedStore((state) => state.tables);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
+
+    console.log(tables, "tables")
 
     useEffect(() => {
         initializePrinter().catch(err => {
@@ -33,7 +37,6 @@ const QRModal = ({ visible, onClose, table_num }) => {
                         reject(new Error('No data received from QR code'));
                         return;
                     }
-                    // Remove the header and any whitespace/newlines
                     const cleanBase64 = dataURL.substring(dataURL.indexOf(',') + 1).trim();
                     if (!cleanBase64) {
                         reject(new Error('Invalid QR code data'));
@@ -63,20 +66,33 @@ const QRModal = ({ visible, onClose, table_num }) => {
     };
 
     useEffect(() => {
-        if (!visible || !table_num) return;
+        if (!visible || !table_num || !tables) return;
+        
+        // Reset the flag when modal is closed
+        if (!visible) {
+            hasGeneratedRef.current = false;
+            return;
+        }
+
+        // Prevent multiple generations for the same session
+        if (hasGeneratedRef.current) return;
+        
         const generateQRAndUpdateTable = async () => {
             setIsLoading(true);
             setError(null);
             try {
-                // Get current table status
-                const tableStatus = tableStore.getState().tables.find(t => String(t.table_num) === String(table_num))?.status;
+                const table = tables.find(t => String(t.table_num) === String(table_num));
+                if (!table) {
+                    throw new Error('Table not found');
+                }
                 
                 const { url } = await qrService.generateToken(table_num);
                 if (!url) throw new Error('Invalid QR code data');
                 setQrValue(url);
+                hasGeneratedRef.current = true;
                 
                 // Only update status if not already unavailable
-                if (tableStatus !== "Unavailable") {
+                if (table.table_status !== "Unavailable") {
                     await updateTableStatus(table_num, "Unavailable");
                 }
             } catch (error) {
@@ -87,7 +103,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
             }
         };
         generateQRAndUpdateTable();
-    }, [visible, table_num]);
+    }, [visible, table_num]); // Remove tables from dependencies
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
