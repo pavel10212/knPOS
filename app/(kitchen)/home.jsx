@@ -29,7 +29,7 @@ const formatTime = (timestamp) => {
     }
 };
 
-const KitchenOrderItem = React.memo(({ item, isChecked, onToggle }) => {
+const KitchenOrderItem = React.memo(({ item, isChecked, onToggle, isUpdating }) => {
     return (
         <View className="p-3 rounded-lg bg-gray-50 mr-2 border-l-4 border-l-primary" style={{ width: 250 }}>
             <View className="flex-row justify-between items-center">
@@ -41,10 +41,11 @@ const KitchenOrderItem = React.memo(({ item, isChecked, onToggle }) => {
                 </View>
                 <TouchableOpacity
                     onPress={onToggle}
-                    className={`p-2 rounded-full ${isChecked ? 'bg-green-100' : 'bg-gray-200'}`}
+                    disabled={isUpdating}
+                    className={`p-2 rounded-full ${isChecked ? 'bg-green-100' : 'bg-gray-200'} ${isUpdating ? 'opacity-70' : ''}`}
                 >
                     <Ionicons
-                        name={isChecked ? "checkmark-circle" : "ellipse-outline"}
+                        name={isUpdating ? "hourglass-outline" : isChecked ? "checkmark-circle" : "ellipse-outline"}
                         size={24}
                         color={isChecked ? "#22C55E" : "#6B7280"}
                     />
@@ -62,7 +63,7 @@ const KitchenOrderItem = React.memo(({ item, isChecked, onToggle }) => {
     );
 });
 
-const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck }) => {
+const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck, updatingItems }) => {
     // Calculate completion percentage
     const totalItems = order.items.length;
     const completedItems = order.items.filter(item =>
@@ -128,6 +129,7 @@ const KitchenOrder = React.memo(({ order, checkedItems, onToggleCheck }) => {
                                 item={item}
                                 isChecked={checkedItems[`${order.id}-${item.cartItemId}`]}
                                 onToggle={() => onToggleCheck(order.id, item.cartItemId)}
+                                isUpdating={updatingItems[`${order.id}-${item.cartItemId}`] || false}
                             />
                         )}
                         horizontal
@@ -157,12 +159,14 @@ const KitchenHome = () => {
     const loadingStatus = useSharedStore(state => state.loadingStatus);
     
     const orders = useSharedStore((state) => state.orders);
+    const setOrders = useSharedStore((state) => state.setOrders);
     const menu = useSharedStore((state) => state.menu);
     const setIsLoggedIn = loginStore((state) => state.setIsLoggedIn);
     const setRole = loginStore((state) => state.setRole);
     const callWaiter = useSocketStore((state) => state.callWaiterSocket);
 
     const [checkedItems, setCheckedItems] = useState({});
+    const [updatingItems, setUpdatingItems] = useState({});
     const [activeTab, setActiveTab] = useState("all");
 
     useEffect(() => {
@@ -222,18 +226,28 @@ const KitchenHome = () => {
     }, [kitchenOrders, activeTab]);
 
     const toggleItemCheck = useCallback(async (orderId, cartItemId) => {
+        // Exit early if this item is already being updated
+        const updatingKey = `${orderId}-${cartItemId}`;
+        if (updatingItems[updatingKey]) return;
+
         const currentOrder = orders?.find(order => order.order_id === orderId);
         if (!currentOrder) return;
 
-        // Optimistically update the UI
-        const checkKey = `${orderId}-${cartItemId}`;
-        const newStatus = !checkedItems[checkKey];
-        setCheckedItems(prev => ({
+        // Mark this item as being updated to prevent duplicate updates
+        setUpdatingItems(prev => ({
             ...prev,
-            [checkKey]: newStatus
+            [updatingKey]: true
         }));
 
         try {
+            // Optimistically update the UI
+            const checkKey = updatingKey;
+            const newStatus = !checkedItems[checkKey];
+            setCheckedItems(prev => ({
+                ...prev,
+                [checkKey]: newStatus
+            }));
+
             const orderDetails = parseOrderDetails(currentOrder.order_details || '[]');
 
             // Find the specific item by cartItemId
@@ -247,33 +261,45 @@ const KitchenHome = () => {
 
             const isOrderPending = currentOrder.order_status === 'Pending';
 
-            const success = await updateOrder(orderId, {
+            // Create the updated order object
+            const updatedOrder = {
                 ...currentOrder,
                 order_details: JSON.stringify(updatedOrderDetails),
                 order_status: isOrderPending ? 'In Progress' : currentOrder.order_status,
-            });
+            };
+
+            // Update server
+            const success = await updateOrder(orderId, updatedOrder);
 
             if (!success) throw new Error('Failed to update order');
 
-            // Update the orders in the shared store
-            const currentOrders = useSharedStore.getState().orders || [];
-            useSharedStore.getState().setOrders(
-                currentOrders.map(o => o.order_id === orderId ? {
-                    ...o,
-                    order_details: JSON.stringify(updatedOrderDetails),
-                } : o)
+            // Update the orders in the shared store with the successful update
+            const currentOrders = [...(useSharedStore.getState().orders || [])];
+            const updatedOrders = currentOrders.map(o => 
+                o.order_id === orderId ? updatedOrder : o
             );
+            setOrders(updatedOrders);
 
         } catch (error) {
             // Revert the optimistic update if the API call fails
+            console.error('Failed to update order status:', error);
             setCheckedItems(prev => ({
                 ...prev,
-                [checkKey]: !newStatus
+                [updatingKey]: !checkedItems[updatingKey]
             }));
-            console.error('Failed to update order status:', error);
-            alert('Failed to update order status. Please try again.');
+            
+            // Show error message to user
+            alert('Failed to update item status. Please try again.');
+        } finally {
+            // Clear updating state
+            setTimeout(() => {
+                setUpdatingItems(prev => ({
+                    ...prev,
+                    [updatingKey]: false
+                }));
+            }, 300); // Add a small delay to prevent rapid clicking
         }
-    }, [orders, checkedItems]);
+    }, [orders, checkedItems, updatingItems, setOrders]);
 
     // Calculate order statistics
     const orderStats = useMemo(() => {
@@ -388,6 +414,7 @@ const KitchenHome = () => {
                                         order={item}
                                         checkedItems={checkedItems}
                                         onToggleCheck={toggleItemCheck}
+                                        updatingItems={updatingItems}
                                     />
                                 </View>
                             )}

@@ -15,7 +15,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
     const tables = useSharedStore((state) => state.tables);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
 
-    console.log(tables, "tables")
+    console.log('QRmodal value:', qrValue);
 
     useEffect(() => {
         initializePrinter().catch(err => {
@@ -67,7 +67,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
 
     useEffect(() => {
         if (!visible || !table_num || !tables) return;
-        
+
         // Reset the flag when modal is closed
         if (!visible) {
             hasGeneratedRef.current = false;
@@ -76,7 +76,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
 
         // Prevent multiple generations for the same session
         if (hasGeneratedRef.current) return;
-        
+
         const generateQRAndUpdateTable = async () => {
             setIsLoading(true);
             setError(null);
@@ -85,12 +85,12 @@ const QRModal = ({ visible, onClose, table_num }) => {
                 if (!table) {
                     throw new Error('Table not found');
                 }
-                
+
                 const { url } = await qrService.generateToken(table_num);
                 if (!url) throw new Error('Invalid QR code data');
                 setQrValue(url);
                 hasGeneratedRef.current = true;
-                
+
                 // Only update status if not already unavailable
                 if (table.table_status !== "Unavailable") {
                     await updateTableStatus(table_num, "Unavailable");
