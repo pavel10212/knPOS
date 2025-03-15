@@ -1,4 +1,4 @@
-import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import Toast from "react-native-toast-message";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MenuItem from "../../components/MenuItem";
@@ -23,6 +23,7 @@ const EditOrAddOrder = () => {
     const setOrders = useSharedStore((state) => state.setOrders);
     const menu = useSharedStore((state) => state.menu);
     const [disableButton, setDisableButton] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const orders = useSharedStore((state) => state.orders);
     const [activeTab, setActiveTab] = useState('menu');
 
@@ -187,16 +188,19 @@ const EditOrAddOrder = () => {
             console.log("Current button state:", disableButton ? "Disabled" : "Enabled");
 
             setDisableButton(true);
+            setIsSubmitting(true);
 
             if (!selectedTable) {
                 console.log("No table selected, aborting order submission");
                 setDisableButton(false);
+                setIsSubmitting(false);
                 return;
             }
 
             if (!temporaryOrder.length) {
                 console.log("No items in order, aborting order submission");
                 setDisableButton(false);
+                setIsSubmitting(false);
                 return;
             }
 
@@ -290,6 +294,7 @@ const EditOrAddOrder = () => {
             // Always ensure the button is re-enabled, even if there's an error or success
             console.log("Resetting button state to enabled");
             setDisableButton(false);
+            setIsSubmitting(false);
         }
     }, [isEditMode, order, selectedTable, temporaryOrder, updateTableStatus, total, setOrders]);
 
@@ -459,13 +464,22 @@ const EditOrAddOrder = () => {
                             Total: ${total.toFixed(2)}
                         </Text>
                         <TouchableOpacity
-                            className="bg-primary p-4 rounded-lg"
+                            className={`bg-primary p-4 rounded-lg ${disableButton ? 'opacity-70' : ''}`}
                             disabled={disableButton}
                             onPress={() => handleFinishOrder()}
                         >
-                            <Text className="text-white text-center font-bold text-lg">
-                                {isEditMode ? "Update Order" : "Confirm Order"}
-                            </Text>
+                            {isSubmitting ? (
+                                <View className="flex-row items-center justify-center">
+                                    <ActivityIndicator size="small" color="white" />
+                                    <Text className="text-white text-center font-bold text-lg ml-2">
+                                        {isEditMode ? "Updating..." : "Processing..."}
+                                    </Text>
+                                </View>
+                            ) : (
+                                <Text className="text-white text-center font-bold text-lg">
+                                    {isEditMode ? "Update Order" : "Confirm Order"}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>

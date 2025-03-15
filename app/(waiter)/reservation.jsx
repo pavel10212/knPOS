@@ -223,7 +223,7 @@ const Reservation = () => {
             table_id: reservationData.table_id,
             reservation_time: reservationData.reservation_time || new Date().toISOString(),
             end_time: reservationData.end_time || '',
-            status: reservationData.status || 'pending',
+            status: reservationData.status || 'pending', // Important: preserve the original status
             notes: reservationData.notes || ''
         });
 
@@ -234,7 +234,6 @@ const Reservation = () => {
         setShowEditReservationModal(true);
 
         // Check table availability for this reservation 
-        // (passing the reservation_id ensures this reservation is excluded from conflict check)
         checkAllTablesAvailabilityForEdit(reservationData.reservation_id);
     };
 
@@ -608,21 +607,24 @@ const Reservation = () => {
             };
 
             // Update the reservation using the store's updateReservation function
-            // This will update both the API and the local store state
             const updatedReservation = await updateReservation(reservationId, reservationData);
             console.log("✅ Reservation updated successfully:", updatedReservation);
 
-            // Check if the reservation is within 2 hours from now
-            // If so, immediately mark the table as Reserved
+            // Only update table status to Reserved if:
+            // 1. The reservation time is within 2 hours AND
+            // 2. The reservation is not in 'seated' status AND
+            // 3. The table is not already marked as 'Unavailable'
             const reservationTime = new Date(editReservationForm.reservation_time);
             const currentTime = new Date();
             const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
+            const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+            const table = tables.find(t => String(t.table_num) === String(tableNum));
 
-            if (reservationTime <= twoHoursFromNow) {
-                console.log(`Updated reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved immediately`);
-
-                // Get the table number
-                const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+            if (reservationTime <= twoHoursFromNow && 
+                editReservationForm.status !== 'seated' && 
+                table?.status !== 'Unavailable') {
+                
+                console.log(`Updated reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved`);
 
                 // Create reservation details for the table
                 const reservationDetails = {
@@ -743,7 +745,7 @@ const Reservation = () => {
             // If so, immediately mark the table as Reserved
             const reservationTime = new Date(reservationForm.reservation_time);
             const currentTime = new Date();
-            const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
+            const twoHoursFromNow = new Date(currentTime.getTime() + 2 * 60 * 60 * 1000);
 
             if (reservationTime <= twoHoursFromNow) {
                 console.log(`Reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved immediately`);
@@ -924,8 +926,24 @@ const Reservation = () => {
                 }
             }
         }
+    // Important: We only want this to run on initial load and when data changes,
+    // NOT when URL params change (like during status updates)
     }, [loading, todayReservations, upcomingGroupedByDate]);
-    // ^ Remove 'params' from the dependency array to prevent re-triggering on status changes
+    // ^ Removed 'params' from dependency array to prevent re-triggering on URL changes
+
+    // Clear the URL parameters after status change to prevent edit modal from showing unexpectedly
+    useEffect(() => {
+        // If we're not in the process of viewing or creating a reservation,
+        // and there are URL parameters, clear them
+        if (!showNewReservationModal && 
+            !showEditReservationModal && 
+            !paramsProcessedRef.current.createNew && 
+            !paramsProcessedRef.current.viewReservation &&
+            (params.viewReservation === 'true' || params.createNew === 'true')) {
+            // Replace URL without the query parameters
+            router.replace('/reservation');
+        }
+    }, [showNewReservationModal, showEditReservationModal, params]);
 
     // Reset the params processed flag when the modals are closed
     useEffect(() => {
@@ -937,6 +955,10 @@ const Reservation = () => {
     useEffect(() => {
         if (!showEditReservationModal) {
             paramsProcessedRef.current.viewReservation = false;
+            // Clear viewReservation parameter when edit modal is closed
+            if (params.viewReservation === 'true') {
+                router.replace('/reservation');
+            }
         }
     }, [showEditReservationModal]);
 

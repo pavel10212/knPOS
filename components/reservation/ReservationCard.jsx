@@ -22,7 +22,6 @@ export const ReservationCard = ({
     };
     
     // Determine which status change buttons to show based on current status
-    const showConfirmButton = ['pending'].includes(reservation.status);
     const showSeatButton = ['pending', 'confirmed'].includes(reservation.status);
     const showCompleteButton = ['seated'].includes(reservation.status) || 
         (isPast() && ['pending', 'confirmed'].includes(reservation.status));
@@ -85,15 +84,6 @@ export const ReservationCard = ({
                     <Feather name="edit-2" size={16} color="#1d4ed8" />
                     <Text className="text-blue-700 font-medium ml-1.5 text-sm">Edit</Text>
                 </TouchableOpacity>
-
-                {showConfirmButton && (
-                    <TouchableOpacity
-                        onPress={() => onStatusChange(reservation.reservation_id, 'confirmed')}
-                        className="mr-2 bg-green-50 px-3 py-2 rounded-lg flex-row items-center">
-                        <Feather name="check" size={16} color="green" />
-                        <Text className="text-green-700 font-medium ml-1.5 text-sm">Confirm</Text>
-                    </TouchableOpacity>
-                )}
 
                 {showSeatButton && (
                     <TouchableOpacity
