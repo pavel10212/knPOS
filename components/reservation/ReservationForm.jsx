@@ -15,6 +15,7 @@ export const ReservationForm = ({
     submitLabel,
     onSubmit,
     onCancel,
+    isSubmitting = false, // Add isSubmitting prop with default value
 }) => {
     const getFormattedDateTime = (dateString) => {
         if (!dateString) return '';
@@ -268,13 +269,22 @@ export const ReservationForm = ({
             <View className="flex-row justify-end border-t border-gray-100 pt-4 px-6 pb-6">
                 <TouchableOpacity
                     onPress={onCancel}
-                    className="bg-gray-100 px-5 py-3 rounded-xl mr-3">
-                    <Text className="font-medium text-gray-700">Cancel</Text>
+                    className="bg-gray-100 px-5 py-3 rounded-xl mr-3"
+                    disabled={isSubmitting}>
+                    <Text className={`font-medium ${isSubmitting ? 'text-gray-400' : 'text-gray-700'}`}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={onSubmit}
-                    className="bg-blue-600 px-5 py-3 rounded-xl">
-                    <Text className="text-white font-semibold">{submitLabel}</Text>
+                    disabled={isSubmitting}
+                    className={`${isSubmitting ? 'bg-blue-400' : 'bg-blue-600'} px-5 py-3 rounded-xl`}>
+                    {isSubmitting ? (
+                        <View className="flex-row items-center">
+                            <ActivityIndicator size="small" color="white" />
+                            <Text className="text-white font-semibold ml-2">Creating...</Text>
+                        </View>
+                    ) : (
+                        <Text className="text-white font-semibold">{submitLabel}</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </>

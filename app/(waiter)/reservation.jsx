@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useSharedStore } from "../../hooks/useSharedStore";
 import {
     View, Text, ScrollView, ActivityIndicator, Alert, Switch,
-    Animated, StatusBar, Dimensions, TouchableOpacity
+    Animated, StatusBar, TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from '@expo/vector-icons';
@@ -23,13 +23,13 @@ import { useLocalSearchParams, router } from 'expo-router';
 const Reservation = () => {
     // Get URL parameters
     const params = useLocalSearchParams();
-    
+
     // Ref to track if we've already processed the URL params
     const paramsProcessedRef = useRef({
         createNew: false,
         viewReservation: false
     });
-    
+
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDateTab, setSelectedDateTab] = useState('today');
     const [dateOptions, setDateOptions] = useState([]);
@@ -73,6 +73,9 @@ const Reservation = () => {
     const [editModalAnimation] = useState(new Animated.Value(0));
     const [showPastReservations, setShowPastReservations] = useState(false);
 
+    // Add state for tracking form submission
+    const [isSubmittingNew, setIsSubmittingNew] = useState(false);
+    const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
     // Date picker handlers
     const showDatePicker = () => setDatePickerVisible(true);
@@ -147,10 +150,9 @@ const Reservation = () => {
         fetchTodayReservations,
         fetchAllReservationData,
         createReservation,
+        updateReservation, // Add this line to import the updateReservation function
         updateReservationStatus,
-        deleteReservation,
-        checkTableAvailability
-    } = useReservationStore();
+        deleteReservation } = useReservationStore();
 
     useFocusEffect(
         useCallback(() => {
@@ -160,7 +162,7 @@ const Reservation = () => {
     // Filter reservations based on selected date
     const getFilteredReservations = () => {
         let result = [];
-        
+
         if (selectedDateTab === 'today') {
             // Filter today's reservations
             result = todayReservations.filter(res =>
@@ -173,12 +175,12 @@ const Reservation = () => {
                 res.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
-        
+
         // Apply past reservation filter if needed
         if (!showPastReservations) {
             result = result.filter(res => !['completed', 'canceled'].includes(res.status));
         }
-        
+
         return result;
     };
 
@@ -333,12 +335,12 @@ const Reservation = () => {
             Object.values(upcomingGroupedByDate).forEach(dateReservations => {
                 allReservations.push(...dateReservations);
             });
-            
+
             const reservation = allReservations.find(r => r.reservation_id === reservationId);
             if (!reservation) {
                 throw new Error("Reservation not found");
             }
-            
+
             const tableId = reservation.table_id;
             const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
 
@@ -348,14 +350,14 @@ const Reservation = () => {
                 const activeOrders = orders.filter(
                     order => String(order.table_num) === String(tableNum) && order.order_status !== 'Completed'
                 );
-                
+
                 // Select the table
                 selectTable({
                     table_num: tableNum,
                     orders: activeOrders,
                     status: 'Unavailable',
                 });
-                
+
                 // If there are no active orders, show a message
                 if (activeOrders.length === 0) {
                     Alert.alert(
@@ -364,15 +366,15 @@ const Reservation = () => {
                         [{ text: "OK" }]
                     );
                 }
-                
+
                 // Navigate to payment page
                 router.push('/payment');
                 return;
             }
-            
+
             // Update reservation status for other statuses
             await updateReservationStatus(reservationId, newStatus);
-            
+
             // Then update table status based on the new reservation status
             if (newStatus === 'canceled') {
                 // When canceled, mark table as Available
@@ -393,7 +395,7 @@ const Reservation = () => {
                     Alert.alert("Warning", `Reservation marked as seated, but failed to update table status to Unavailable`);
                 }
             }
-            
+
             // Refresh the reservation data
             fetchTodayReservations();
         } catch (error) {
@@ -413,8 +415,48 @@ const Reservation = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
+                            // First, get the reservation details to access table information
+                            const allReservations = [...todayReservations];
+                            Object.values(upcomingGroupedByDate).forEach(dateReservations => {
+                                allReservations.push(...dateReservations);
+                            });
+
+                            const reservation = allReservations.find(r => r.reservation_id === reservationId);
+                            if (!reservation) {
+                                throw new Error("Reservation not found");
+                            }
+
+                            const tableId = reservation.table_id;
+                            const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+
+                            // Delete the reservation
                             await deleteReservation(reservationId);
+
+                            // After deletion, check if there are other active reservations for this table
+                            const otherReservationsForTable = allReservations.filter(r =>
+                                r.reservation_id !== reservationId &&
+                                r.table_id === tableId &&
+                                !['completed', 'canceled'].includes(r.status)
+                            );
+
+                            if (otherReservationsForTable.length === 0) {
+                                // No other active reservations, mark the table as Available
+                                console.log(`No other active reservations for table ${tableNum}, marking as Available after deletion`);
+                                try {
+                                    await tableStore.getState().updateTableStatus(tableNum, 'Available');
+                                    console.log(`✅ Table ${tableNum} marked as Available after reservation deleted`);
+                                } catch (error) {
+                                    console.error(`❌ Failed to mark table ${tableNum} as Available:`, error);
+                                    Alert.alert("Warning", "Reservation deleted, but failed to update table status");
+                                }
+                            } else {
+                                console.log(`Table ${tableNum} still has ${otherReservationsForTable.length} active reservations - keeping status`);
+                            }
+
+                            // Refresh reservation data
+                            fetchTodayReservations();
                         } catch (error) {
+                            console.error("Error deleting reservation:", error);
                             Alert.alert("Error", "Failed to delete reservation");
                         }
                     }
@@ -441,21 +483,54 @@ const Reservation = () => {
         return errors;
     };
 
+    // Add validateEditForm function to handle edit form validation
+    const validateEditForm = () => {
+        const errors = {};
+
+        if (!editReservationForm.customer_name.trim())
+            errors.customer_name = "Name is required";
+
+        if (!editReservationForm.customer_phone.trim())
+            errors.customer_phone = "Phone number is required";
+
+        if (!editReservationForm.table_id)
+            errors.table_id = "Please select a table";
+
+        if (editReservationForm.party_size <= 0)
+            errors.party_size = "Party size must be at least 1";
+
+        return errors;
+    };
+
     const handleUpdateReservation = async () => {
         const errors = validateEditForm();
         setEditFormErrors(errors);
 
         if (Object.keys(errors).length > 0) return;
 
+        // Set loading state to true
+        setIsSubmittingEdit(true);
+
         try {
             // Ensure table is selected
             if (!editReservationForm.table_id) {
                 setEditFormErrors(prev => ({ ...prev, table_id: "Please select a table" }));
+                setIsSubmittingEdit(false); // Reset loading state
                 return;
             }
 
             const tableId = Number(editReservationForm.table_id);
             const reservationId = editReservationForm.reservation_id;
+
+            // Find the original reservation to check if table has changed
+            const allReservations = [...todayReservations];
+            Object.values(upcomingGroupedByDate).forEach(dateReservations => {
+                allReservations.push(...dateReservations);
+            });
+
+            const originalReservation = allReservations.find(r => r.reservation_id === reservationId);
+            const originalTableId = originalReservation?.table_id;
+            const tableChanged = originalTableId && (originalTableId !== tableId);
 
             // Calculate end time for consistency
             const endTime = editReservationForm.end_time ||
@@ -478,7 +553,7 @@ const Reservation = () => {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-                    const endTime = res.end_time ? 
+                    const endTime = res.end_time ?
                         new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
                         "unspecified end time";
 
@@ -491,29 +566,64 @@ const Reservation = () => {
                     [{ text: "OK" }]
                 );
 
+                setIsSubmittingEdit(false); // Reset loading state
                 return;
             }
 
-            // If available, update the reservation
-            const updatedReservation = await updateReservation(reservationId, {
+            // If the table has changed, check if the original table needs to be reset
+            if (tableChanged) {
+                console.log(`Table changed from ${originalTableId} to ${tableId} - checking if original table needs reset`);
+                const originalTableNum = tables.find(t => t.table_id === originalTableId)?.table_num;
+
+                if (originalTableNum) {
+                    // Check if there are other active reservations for the original table
+                    const otherReservationsForOriginalTable = allReservations.filter(r =>
+                        r.reservation_id !== reservationId &&
+                        r.table_id === originalTableId &&
+                        !['completed', 'canceled'].includes(r.status)
+                    );
+
+                    if (otherReservationsForOriginalTable.length === 0) {
+                        // No other active reservations, safe to mark as Available
+                        console.log(`No other active reservations for table ${originalTableNum}, marking as Available`);
+                        try {
+                            await tableStore.getState().updateTableStatus(originalTableNum, 'Available');
+                            console.log(`✅ Original table ${originalTableNum} marked as Available after reservation moved`);
+                        } catch (error) {
+                            console.error(`❌ Failed to mark original table ${originalTableNum} as Available:`, error);
+                            // Continue execution, don't block the update
+                        }
+                    } else {
+                        console.log(`Table ${originalTableNum} still has ${otherReservationsForOriginalTable.length} active reservations - keeping status`);
+                    }
+                }
+            }
+
+            // Prepare the reservation data
+            const reservationData = {
                 ...editReservationForm,
                 party_size: Number(editReservationForm.party_size),
                 table_id: tableId,
-                end_time: endTime // Ensure end_time is always set
-            });
-            
+                end_time: endTime
+            };
+
+            // Update the reservation using the store's updateReservation function
+            // This will update both the API and the local store state
+            const updatedReservation = await updateReservation(reservationId, reservationData);
+            console.log("✅ Reservation updated successfully:", updatedReservation);
+
             // Check if the reservation is within 2 hours from now
             // If so, immediately mark the table as Reserved
             const reservationTime = new Date(editReservationForm.reservation_time);
             const currentTime = new Date();
             const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
-            
+
             if (reservationTime <= twoHoursFromNow) {
                 console.log(`Updated reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved immediately`);
-                
+
                 // Get the table number
                 const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
-                
+
                 // Create reservation details for the table
                 const reservationDetails = {
                     customerName: editReservationForm.customer_name,
@@ -525,7 +635,7 @@ const Reservation = () => {
                     reservedAt: new Date().toISOString(),
                     partySize: Number(editReservationForm.party_size)
                 };
-                
+
                 // Immediately mark the table as Reserved
                 try {
                     await tableStore.getState().updateTableStatus(
@@ -541,10 +651,18 @@ const Reservation = () => {
                 }
             }
 
+            // Close the edit modal
             setShowEditReservationModal(false);
-            fetchTodayReservations();
+
+            // Refresh the UI with the latest data from the server
+            await fetchAllReservationData(true);
+
         } catch (error) {
+            console.error("Error updating reservation:", error);
             Alert.alert("Error", "Failed to update reservation");
+        } finally {
+            // Always reset loading state
+            setIsSubmittingEdit(false);
         }
     };
 
@@ -554,10 +672,14 @@ const Reservation = () => {
 
         if (Object.keys(errors).length > 0) return;
 
+        // Set loading state to true
+        setIsSubmittingNew(true);
+
         try {
             // First, ensure a table is selected
             if (!reservationForm.table_id) {
                 setFormErrors(prev => ({ ...prev, table_id: "Please select a table" }));
+                setIsSubmittingNew(false); // Reset loading state
                 return;
             }
 
@@ -583,7 +705,7 @@ const Reservation = () => {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-                    const endTime = res.end_time ? 
+                    const endTime = res.end_time ?
                         new Date(res.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
                         "unspecified end time";
 
@@ -598,29 +720,37 @@ const Reservation = () => {
 
                 // Refresh table availability to update UI
                 checkAllTablesAvailability();
+                setIsSubmittingNew(false); // Reset loading state
                 return;
             }
 
-            // If available, proceed with creating the reservation
-            const newReservation = await createReservation({
+            // Prepare the reservation data
+            const reservationData = {
                 ...reservationForm,
                 party_size: Number(reservationForm.party_size),
                 table_id: tableId,
-                end_time: endTime // Ensure end_time is always set
-            });
+                end_time: endTime
+            };
+
+            // Create the reservation using the store's createReservation function
+            // This will update both the API and the local store state
+            const newReservation = await createReservation(reservationData);
+            console.log("✅ Reservation created successfully:", newReservation);
+
+            // If available, proceed with marking the table as reserved if needed
 
             // Check if the reservation is within 2 hours from now
             // If so, immediately mark the table as Reserved
             const reservationTime = new Date(reservationForm.reservation_time);
             const currentTime = new Date();
             const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
-            
+
             if (reservationTime <= twoHoursFromNow) {
                 console.log(`Reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved immediately`);
-                
+
                 // Get the table number
                 const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
-                
+
                 // Create reservation details for the table
                 const reservationDetails = {
                     customerName: reservationForm.customer_name,
@@ -632,7 +762,7 @@ const Reservation = () => {
                     reservedAt: new Date().toISOString(),
                     partySize: Number(reservationForm.party_size)
                 };
-                
+
                 // Immediately mark the table as Reserved
                 try {
                     await tableStore.getState().updateTableStatus(
@@ -650,19 +780,23 @@ const Reservation = () => {
 
             // Close the new reservation modal
             setShowNewReservationModal(false);
-            
+
             // Clear params processed flags to prevent edit modal from showing
             paramsProcessedRef.current.createNew = false;
             paramsProcessedRef.current.viewReservation = false;
-            
+
             // Reset URL params to prevent unwanted modal openings
             router.replace('/reservation');
-            
-            // Refresh reservations data
-            await fetchTodayReservations();
+
+            // Refresh the UI with the latest data from the server
+            await fetchAllReservationData(true);
 
         } catch (error) {
+            console.error("Error creating reservation:", error);
             Alert.alert("Error", "Failed to create reservation");
+        } finally {
+            // Always reset loading state
+            setIsSubmittingNew(false);
         }
     };
 
@@ -755,13 +889,13 @@ const Reservation = () => {
                 if (params.createNew === 'true' && params.selectedTableId) {
                     paramsProcessedRef.current.createNew = true;
                     console.log(`Creating new reservation for table ID: ${params.selectedTableId}`);
-                    
+
                     // Set the form with the selected table and open modal
                     setReservationForm(prev => ({
                         ...prev,
                         table_id: params.selectedTableId
                     }));
-                    
+
                     // Open the modal after a short delay to ensure the form is updated
                     setTimeout(() => {
                         setShowNewReservationModal(true);
@@ -771,18 +905,18 @@ const Reservation = () => {
                 else if (params.viewReservation === 'true' && params.reservationId) {
                     paramsProcessedRef.current.viewReservation = true;
                     console.log(`Looking for reservation ID: ${params.reservationId}`);
-                    
+
                     // Find all reservations (combine today and all upcoming)
                     const allReservations = [
                         ...todayReservations,
                         ...Object.values(upcomingGroupedByDate).flat()
                     ];
-                    
+
                     // Find the target reservation
-                    const targetReservation = allReservations.find(res => 
+                    const targetReservation = allReservations.find(res =>
                         String(res.reservation_id) === String(params.reservationId)
                     );
-                    
+
                     if (targetReservation) {
                         console.log('Found reservation, opening edit modal');
                         handleEditReservation(targetReservation);
@@ -845,17 +979,17 @@ const Reservation = () => {
     // Function to check if a reservation should be auto-completed
     const checkAndAutoUpdatePastReservations = useCallback(() => {
         if (!todayReservations || !upcomingGroupedByDate) return;
-        
+
         const now = new Date();
         const pastReservations = [];
-        
+
         // Check today's reservations
         todayReservations.forEach(reservation => {
             if (['pending', 'confirmed', 'seated'].includes(reservation.status)) {
                 const reservationTime = new Date(reservation.reservation_time);
-                const endTime = reservation.end_time ? new Date(reservation.end_time) : 
+                const endTime = reservation.end_time ? new Date(reservation.end_time) :
                     new Date(reservationTime.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours
-                
+
                 if (now > endTime) {
                     pastReservations.push({
                         id: reservation.reservation_id,
@@ -864,15 +998,15 @@ const Reservation = () => {
                 }
             }
         });
-        
+
         // Check upcoming reservations
         Object.values(upcomingGroupedByDate).forEach(reservationsForDate => {
             reservationsForDate.forEach(reservation => {
                 if (['pending', 'confirmed', 'seated'].includes(reservation.status)) {
                     const reservationTime = new Date(reservation.reservation_time);
-                    const endTime = reservation.end_time ? new Date(reservation.end_time) : 
+                    const endTime = reservation.end_time ? new Date(reservation.end_time) :
                         new Date(reservationTime.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours
-                    
+
                     if (now > endTime) {
                         pastReservations.push({
                             id: reservation.reservation_id,
@@ -882,7 +1016,7 @@ const Reservation = () => {
                 }
             });
         });
-        
+
         // Update status for past reservations
         if (pastReservations.length > 0) {
             console.log(`Found ${pastReservations.length} past reservations to update`);
@@ -997,6 +1131,7 @@ const Reservation = () => {
                     checkingAvailability={checkingAvailability}
                     availableTables={availableTables}
                     onSubmit={handleSubmitNewReservation}
+                    isSubmitting={isSubmittingNew} // Pass isSubmitting state
                     datePickers={{
                         isDatePickerVisible,
                         isEndDatePickerVisible,
@@ -1021,6 +1156,7 @@ const Reservation = () => {
                     checkingAvailability={checkingAvailability}
                     availableTables={availableTables}
                     onSubmit={handleUpdateReservation}
+                    isSubmitting={isSubmittingEdit} // Pass isSubmitting state
                     datePickers={{
                         isDatePickerVisible: isEditDatePickerVisible,
                         isEndDatePickerVisible: isEditEndDatePickerVisible,

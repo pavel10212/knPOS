@@ -15,6 +15,7 @@ export const EditReservationModal = ({
     availableTables,
     onSubmit,
     datePickers,
+    isSubmitting = false, // Add isSubmitting prop with default value
 }) => {
     const modalSlideY = modalAnimation.interpolate({
         inputRange: [0, 1],
@@ -47,12 +48,13 @@ export const EditReservationModal = ({
                             </View>
                             <TouchableOpacity
                                 onPress={onClose}
+                                disabled={isSubmitting}
                                 className="bg-gray-100 p-2.5 rounded-full">
-                                <Feather name="x" size={20} color="#666" />
+                                <Feather name="x" size={20} color={isSubmitting ? "#aaa" : "#666"} />
                             </TouchableOpacity>
                         </View>
 
-                        <ReservationForm 
+                        <ReservationForm
                             form={form}
                             onUpdateForm={onUpdateForm}
                             formErrors={formErrors}
@@ -64,6 +66,7 @@ export const EditReservationModal = ({
                             submitLabel="Update Reservation"
                             onSubmit={onSubmit}
                             onCancel={onClose}
+                            isSubmitting={isSubmitting} // Pass the isSubmitting prop
                         />
                     </KeyboardAvoidingView>
                 </Animated.View>
