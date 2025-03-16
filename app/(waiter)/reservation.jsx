@@ -531,6 +531,11 @@ const Reservation = () => {
             const originalTableId = originalReservation?.table_id;
             const tableChanged = originalTableId && (originalTableId !== tableId);
 
+            // Get the current table status
+            const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
+            const table = tables.find(t => String(t.table_num) === String(tableNum));
+            const currentTableStatus = table?.status || "";
+
             // Calculate end time for consistency
             const endTime = editReservationForm.end_time ||
                 new Date(new Date(editReservationForm.reservation_time).getTime() + 2 * 60 * 60 * 1000).toISOString();
@@ -610,22 +615,33 @@ const Reservation = () => {
             const updatedReservation = await updateReservation(reservationId, reservationData);
             console.log("✅ Reservation updated successfully:", updatedReservation);
 
-            // Only update table status to Reserved if:
-            // 1. The reservation time is within 2 hours AND
-            // 2. The reservation is not in 'seated' status AND
-            // 3. The table is not already marked as 'Unavailable'
+            // Special handling for table status based on reservation status
             const reservationTime = new Date(editReservationForm.reservation_time);
             const currentTime = new Date();
             const twoHoursFromNow = new Date(currentTime.getTime() + (2 * 60 * 60 * 1000));
-            const tableNum = tables.find(t => t.table_id === tableId)?.table_num || tableId;
-            const table = tables.find(t => String(t.table_num) === String(tableNum));
 
-            if (reservationTime <= twoHoursFromNow && 
-                editReservationForm.status !== 'seated' && 
-                table?.status !== 'Unavailable') {
+            // Determine the appropriate table status based on reservation status and conditions
+            if (editReservationForm.status === 'seated') {
+                // For seated status, table should be Unavailable
+                // Only update if the current status isn't already Unavailable
+                if (currentTableStatus !== 'Unavailable') {
+                    console.log(`Reservation is seated - marking table ${tableNum} as Unavailable`);
+                    try {
+                        await tableStore.getState().updateTableStatus(tableNum, 'Unavailable');
+                        console.log(`✅ Table ${tableNum} marked as Unavailable for seated reservation`);
+                    } catch (error) {
+                        console.error(`❌ Failed to mark table ${tableNum} as Unavailable:`, error);
+                    }
+                } else {
+                    console.log(`Table ${tableNum} is already Unavailable, keeping status for seated reservation`);
+                }
+            } else if (['pending', 'confirmed'].includes(editReservationForm.status) && 
+                       reservationTime <= twoHoursFromNow &&
+                       currentTableStatus !== 'Unavailable') {
+                // For pending/confirmed within 2 hours, table should be Reserved
+                // Only if it's not already marked as Unavailable (which takes priority)
+                console.log(`Upcoming reservation within 2 hours - marking table ${tableNum} as Reserved`);
                 
-                console.log(`Updated reservation at ${reservationTime.toLocaleTimeString()} is within 2 hours - marking table ${tableId} as Reserved`);
-
                 // Create reservation details for the table
                 const reservationDetails = {
                     customerName: editReservationForm.customer_name,
@@ -638,19 +654,38 @@ const Reservation = () => {
                     partySize: Number(editReservationForm.party_size)
                 };
 
-                // Immediately mark the table as Reserved
                 try {
                     await tableStore.getState().updateTableStatus(
                         tableNum,
                         'Reserved',
                         reservationDetails
                     );
-                    console.log(`✅ Table ${tableNum} marked as Reserved immediately for upcoming updated reservation`);
+                    console.log(`✅ Table ${tableNum} marked as Reserved for upcoming reservation`);
                 } catch (error) {
                     console.error(`❌ Failed to mark table ${tableNum} as Reserved:`, error);
-                    // Note: We don't want to block the reservation update if this fails
-                    // The background process will retry later
                 }
+            } else if (['completed', 'canceled'].includes(editReservationForm.status)) {
+                // For completed/canceled, check if we need to mark table as Available
+                // Check if there are other active reservations for this table
+                const otherActiveReservations = allReservations.filter(r =>
+                    r.reservation_id !== reservationId &&
+                    r.table_id === tableId &&
+                    !['completed', 'canceled'].includes(r.status)
+                );
+
+                if (otherActiveReservations.length === 0) {
+                    console.log(`No other active reservations - marking table ${tableNum} as Available`);
+                    try {
+                        await tableStore.getState().updateTableStatus(tableNum, 'Available');
+                        console.log(`✅ Table ${tableNum} marked as Available after completing/canceling reservation`);
+                    } catch (error) {
+                        console.error(`❌ Failed to mark table ${tableNum} as Available:`, error);
+                    }
+                } else {
+                    console.log(`Table ${tableNum} still has ${otherActiveReservations.length} active reservations - keeping status`);
+                }
+            } else {
+                console.log(`No table status update needed for this reservation update`);
             }
 
             // Close the edit modal
