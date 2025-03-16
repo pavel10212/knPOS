@@ -97,7 +97,8 @@ const Order = () => {
                     return orderDate.getFullYear() === now.getFullYear() &&
                         orderDate.getMonth() === now.getMonth() &&
                         orderDate.getDate() === now.getDate() &&
-                        order.table_token === table.token
+                        order.table_token === table.token &&
+                        order.order_status !== 'Cancelled'; 
                 });
 
             return {

@@ -183,7 +183,7 @@ const KitchenHome = () => {
         const uniqueOrders = deduplicateOrders(orders);
 
         return uniqueOrders
-            .filter(order => order && order.order_status !== 'Completed' && order.order_status !== 'Ready')
+            .filter(order => order && order.order_status !== 'Completed' && order.order_status !== 'Ready' && order.order_status !== 'Cancelled')
             .sort((a, b) => {
                 // First by status urgency
                 const aTime = new Date(a.order_date_time);
