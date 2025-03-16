@@ -1,5 +1,4 @@
 import React from "react";
-import Toast from "react-native-toast-message";
 import NotificationsPanel from "./NotificationsPanel";
 import NotificationToast from "./NotificationToast";
 import { TouchableWithoutFeedback, View, StyleSheet } from "react-native";
