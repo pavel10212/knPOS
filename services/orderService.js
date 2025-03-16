@@ -88,6 +88,40 @@ export const updateOrderStatus = async (order, updatedOrderDetails) => {
   return orderService.updateOrder(order.order_id, orderData);
 };
 
+export const cancelOrder = async (order, orderDetailsString, reason = "") => {
+  // Parse the order details
+  let orderDetailsObj;
+  try {
+    orderDetailsObj = JSON.parse(orderDetailsString);
+  } catch (e) {
+    // If it's already an object, use it as is
+    orderDetailsObj = Array.isArray(orderDetailsString) ? orderDetailsString : [];
+  }
+
+  // Add cancellation metadata to the order details
+  const updatedDetailsWithMetadata = orderDetailsObj.map(item => ({
+    ...item,
+    status: "Cancelled" // Changed spelling to use two L's
+  }));
+
+  // Add a metadata object to the array with cancellation reason
+  updatedDetailsWithMetadata.push({
+    type: "metadata",
+    isCancelled: true, // Changed spelling to use two L's
+    cancellationReason: reason || "Order cancelled by staff", // Changed spelling to use two L's
+    cancelledAt: new Date().toISOString() // Changed spelling to use two L's
+  });
+
+  const orderData = {
+    order_status: "Cancelled", // Changed spelling to use two L's
+    completion_date_time: new Date().toISOString(),
+    order_details: JSON.stringify(updatedDetailsWithMetadata),
+    total_amount: order.total_amount,
+  };
+  
+  return orderService.updateOrder(order.order_id, orderData);
+};
+
 export const updateOrderWithPayment = async (
   orderId,
   orderDetails,

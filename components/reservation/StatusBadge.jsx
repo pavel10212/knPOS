@@ -28,11 +28,11 @@ export const StatusBadge = ({ status }) => {
             icon: 'check-square',
             description: 'Reservation completed'
         },
-        canceled: { 
+        cancelled: { 
             bg: 'bg-red-100', 
             text: 'text-red-700', 
             icon: 'x-circle',
-            description: 'Reservation canceled'
+            description: 'Reservation cancelled'
         }
     };
 

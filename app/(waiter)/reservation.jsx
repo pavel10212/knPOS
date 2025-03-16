@@ -178,7 +178,7 @@ const Reservation = () => {
 
         // Apply past reservation filter if needed
         if (!showPastReservations) {
-            result = result.filter(res => !['completed', 'canceled'].includes(res.status));
+            result = result.filter(res => !['completed', 'cancelled'].includes(res.status));
         }
 
         return result;
@@ -325,7 +325,7 @@ const Reservation = () => {
     }, {});
 
     // Define the desired order of status types
-    const statusOrder = ['pending', 'confirmed', 'seated', 'completed', 'canceled'];
+    const statusOrder = ['pending', 'confirmed', 'seated', 'completed', 'cancelled'];
 
     const handleStatusChange = async (reservationId, newStatus) => {
         try {
@@ -375,8 +375,8 @@ const Reservation = () => {
             await updateReservationStatus(reservationId, newStatus);
 
             // Then update table status based on the new reservation status
-            if (newStatus === 'canceled') {
-                // When canceled, mark table as Available
+            if (newStatus === 'cancelled') {
+                // When cancelled, mark table as Available
                 console.log(`Marking table ${tableNum} as Available after canceling reservation`);
                 try {
                     await tableStore.getState().updateTableStatus(tableNum, 'Available');
@@ -435,7 +435,7 @@ const Reservation = () => {
                             const otherReservationsForTable = allReservations.filter(r =>
                                 r.reservation_id !== reservationId &&
                                 r.table_id === tableId &&
-                                !['completed', 'canceled'].includes(r.status)
+                                !['completed', 'cancelled'].includes(r.status)
                             );
 
                             if (otherReservationsForTable.length === 0) {
@@ -584,7 +584,7 @@ const Reservation = () => {
                     const otherReservationsForOriginalTable = allReservations.filter(r =>
                         r.reservation_id !== reservationId &&
                         r.table_id === originalTableId &&
-                        !['completed', 'canceled'].includes(r.status)
+                        !['completed', 'cancelled'].includes(r.status)
                     );
 
                     if (otherReservationsForOriginalTable.length === 0) {
@@ -664,13 +664,13 @@ const Reservation = () => {
                 } catch (error) {
                     console.error(`❌ Failed to mark table ${tableNum} as Reserved:`, error);
                 }
-            } else if (['completed', 'canceled'].includes(editReservationForm.status)) {
-                // For completed/canceled, check if we need to mark table as Available
+            } else if (['completed', 'cancelled'].includes(editReservationForm.status)) {
+                // For completed/cancelled, check if we need to mark table as Available
                 // Check if there are other active reservations for this table
                 const otherActiveReservations = allReservations.filter(r =>
                     r.reservation_id !== reservationId &&
                     r.table_id === tableId &&
-                    !['completed', 'canceled'].includes(r.status)
+                    !['completed', 'cancelled'].includes(r.status)
                 );
 
                 if (otherActiveReservations.length === 0) {
@@ -1078,7 +1078,7 @@ const Reservation = () => {
         if (pastReservations.length > 0) {
             console.log(`Found ${pastReservations.length} past reservations to update`);
             pastReservations.forEach(async (item) => {
-                // Mark seated as completed, mark pending/confirmed as canceled
+                // Mark seated as completed, mark pending/confirmed as cancelled
                 const newStatus = item.status === 'seated' ? 'completed' : 'completed';
                 await updateReservationStatus(item.id, newStatus);
             });
@@ -1103,7 +1103,7 @@ const Reservation = () => {
 
                 {/* Add filter for past reservations */}
                 <View className="px-6 pt-2 flex-row items-center justify-end">
-                    <Text className="text-gray-600 mr-2">Show completed/canceled</Text>
+                    <Text className="text-gray-600 mr-2">Show completed/cancelled</Text>
                     <Switch
                         value={showPastReservations}
                         onValueChange={setShowPastReservations}
@@ -1147,7 +1147,7 @@ const Reservation = () => {
                             </View>
                             <View className="flex-row items-center mb-2">
                                 <View className="w-3 h-3 rounded-full bg-red-100 mr-1" />
-                                <Text className="text-xs text-gray-600">Canceled: Reservation canceled</Text>
+                                <Text className="text-xs text-gray-600">Cancelled: Reservation cancelled</Text>
                             </View>
                         </View>
                     </View>

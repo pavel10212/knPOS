@@ -238,7 +238,7 @@ export const ReservationForm = ({
                     <View className="mb-5">
                         <Text className="text-gray-700 font-medium mb-1.5 text-sm">Status</Text>
                         <View className="flex-row flex-wrap">
-                            {['pending', 'confirmed', 'seated', 'completed', 'canceled'].map(status => (
+                            {['pending', 'confirmed', 'seated', 'completed', 'cancelled'].map(status => (
                                 <TouchableOpacity
                                     key={status}
                                     onPress={() => onUpdateForm({ ...form, status })}

@@ -2,7 +2,7 @@ import { Text, TouchableOpacity, TouchableWithoutFeedback, View, Modal, Alert } 
 import React, { useState, useMemo } from 'react'
 import { useSharedStore } from '../hooks/useSharedStore';
 import { tableStore } from '../hooks/useStore';
-import { updateOrderStatus } from '../services/orderService';
+import { cancelOrder } from '../services/orderService';
 import { useRouter } from 'expo-router';
 import { useReservationStore } from '../hooks/useReservationStore';
 
@@ -39,7 +39,8 @@ const TableComponent = ({
         return orders.filter((order) => {
             // Convert both to strings for comparison to handle mixed types
             return String(order.table_num) === String(table_num) &&
-                order.order_status !== 'Completed';
+                order.order_status !== 'Completed' &&
+                order.order_status !== 'Cancelled';
         });
     }, [orders, table_num]);
 
@@ -47,11 +48,11 @@ const TableComponent = ({
     const tableReservation = useMemo(() => {
         if (status !== 'Reserved') return null;
 
-        // Find the reservation for this table that has not been completed or canceled
+        // Find the reservation for this table that has not been completed or cancelled
         return upcomingReservations.find(
             reservation =>
                 reservation.table_id === table_id &&
-                !['completed', 'canceled'].includes(reservation.status)
+                !['completed', 'cancelled'].includes(reservation.status)
         );
     }, [upcomingReservations, table_id, status]);
 
@@ -128,17 +129,22 @@ const TableComponent = ({
 
     const confirmStatusChange = async () => {
         try {
-            // First, mark all orders for this table as completed
+            // First, mark all orders for this table as cancelled instead of completed
             const updatedOrders = await Promise.all(
                 ordersForTable.map(async (order) => {
                     const updatedOrderDetails = JSON.stringify(
                         order.order_details.map((detail) => ({
                             ...detail,
-                            status: "Completed"
+                            status: "Cancelled"
                         }))
                     );
 
-                    return await updateOrderStatus(order, updatedOrderDetails);
+                    // Use our new cancelOrder function with a reason
+                    return await cancelOrder(
+                        order, 
+                        updatedOrderDetails, 
+                        "Table marked as available before order completion"
+                    );
                 })
             );
 
@@ -326,7 +332,7 @@ const TableComponent = ({
                     <View className="flex-1 justify-center items-center bg-black/50">
                         <TouchableWithoutFeedback>
                             <View className="bg-white p-8 rounded-xl w-[450px] shadow-xl">
-                                <Text className="text-xl font-bold mb-4 text-gray-800">Complete Orders & Change
+                                <Text className="text-xl font-bold mb-4 text-gray-800">Cancel Orders & Change
                                     Status</Text>
                                 <Text className="mb-4 text-gray-600 text-base">
                                     This table has {ordersForTable.length} active
@@ -334,7 +340,7 @@ const TableComponent = ({
                                 </Text>
                                 <Text className="mb-8 text-gray-600 text-base">
                                     Would you like to mark {ordersForTable.length > 1 ? 'all orders' : 'the order'} as
-                                    completed
+                                    cancelled
                                     and change the table status to available?
                                 </Text>
                                 <View className="flex-row justify-end space-x-6">
@@ -351,7 +357,7 @@ const TableComponent = ({
                                         onPress={confirmStatusChange}
                                         className="px-6 py-3 rounded-lg bg-blue-500 shadow-sm"
                                     >
-                                        <Text className="text-white font-medium">Complete & Mark Available</Text>
+                                        <Text className="text-white font-medium">Cancel Orders & Mark Available</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>

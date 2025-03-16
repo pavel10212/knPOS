@@ -355,8 +355,8 @@ export const useReservationStore = create((set, get) => ({
       if (reservation.table_id !== tableId)
         return false;
 
-      // Skip if canceled
-      if (reservation.status === "canceled")
+      // Skip if cancelled
+      if (reservation.status === "cancelled")
         return false;
 
       // Get reservation time range WITH buffer

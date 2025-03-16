@@ -25,7 +25,7 @@ export const ReservationCard = ({
     const showSeatButton = ['pending', 'confirmed'].includes(reservation.status);
     const showCompleteButton = ['seated'].includes(reservation.status) || 
         (isPast() && ['pending', 'confirmed'].includes(reservation.status));
-    const showCancelButton = !['completed', 'canceled'].includes(reservation.status);
+    const showCancelButton = !['completed', 'cancelled'].includes(reservation.status);
 
     return (
         <View className="bg-white border border-gray-100 rounded-xl p-5 mb-4 shadow-sm">
@@ -105,7 +105,7 @@ export const ReservationCard = ({
 
                 {showCancelButton && (
                     <TouchableOpacity
-                        onPress={() => onStatusChange(reservation.reservation_id, 'canceled')}
+                        onPress={() => onStatusChange(reservation.reservation_id, 'cancelled')}
                         className="mr-2 bg-red-50 px-3 py-2 rounded-lg flex-row items-center">
                         <Feather name="x" size={16} color="#b91c1c" />
                         <Text className="text-red-700 font-medium ml-1.5 text-sm">Cancel</Text>

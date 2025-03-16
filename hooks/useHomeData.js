@@ -127,8 +127,8 @@ export const useHomeData = () => {
         
         // Filter to find reservations within our window
         const relevantReservations = upcomingReservations.filter(reservation => {
-          // Skip canceled reservations
-          if (reservation.status === "canceled") return false;
+          // Skip cancelled reservations
+          if (reservation.status === "cancelled") return false;
           
           const reservationTime = new Date(reservation.reservation_time);
           

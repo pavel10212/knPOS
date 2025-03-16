@@ -26,15 +26,15 @@ export const DateNavigation = ({
         }
     };
     
-    // Compute active reservation counts (excluding completed and canceled)
+    // Compute active reservation counts (excluding completed and cancelled)
     const activeReservationCounts = useMemo(() => {
         const result = {};
         if (!upcomingGroupedByDate) return result;
         
         Object.keys(upcomingGroupedByDate).forEach(date => {
-            // Filter out completed and canceled reservations
+            // Filter out completed and cancelled reservations
             const activeReservations = upcomingGroupedByDate[date].filter(
-                res => !['completed', 'canceled'].includes(res.status)
+                res => !['completed', 'cancelled'].includes(res.status)
             );
             
             // Only store count if there are active reservations
@@ -51,7 +51,7 @@ export const DateNavigation = ({
         if (!upcomingGroupedByDate || !selectedDateTab) return 0;
         
         const reservations = upcomingGroupedByDate[selectedDateTab] || [];
-        return reservations.filter(res => !['completed', 'canceled'].includes(res.status)).length;
+        return reservations.filter(res => !['completed', 'cancelled'].includes(res.status)).length;
     }, [upcomingGroupedByDate, selectedDateTab]);
 
     return (

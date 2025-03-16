@@ -91,8 +91,8 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
     
     // Filter to find reservations within our window
     const relevantReservations = upcomingReservations.filter(reservation => {
-      // Skip canceled reservations
-      if (reservation.status === "canceled") return false;
+      // Skip cancelled reservations
+      if (reservation.status === "cancelled") return false;
       
       const reservationTime = new Date(reservation.reservation_time);
       
@@ -133,10 +133,10 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
       }
     }
     
-    // Also check for completed/canceled reservations to potentially free up tables
+    // Also check for completed/cancelled reservations to potentially free up tables
     const pastReservations = upcomingReservations.filter(reservation => {
-      // Only consider completed, canceled, or reservations that have passed
-      if (["completed", "canceled"].includes(reservation.status)) return true;
+      // Only consider completed, cancelled, or reservations that have passed
+      if (["completed", "cancelled"].includes(reservation.status)) return true;
       
       const reservationTime = new Date(reservation.reservation_time);
       const endTime = reservation.end_time 
@@ -166,7 +166,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
         );
         
         if (otherActiveReservations.length === 0) {
-          console.log(`🔄 Making table ${tableNum} Available after completed/canceled reservation`);
+          console.log(`🔄 Making table ${tableNum} Available after completed/cancelled reservation`);
           
           try {
             // Reset the table token and make it Available
