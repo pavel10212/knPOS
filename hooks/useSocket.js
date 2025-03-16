@@ -8,9 +8,16 @@ import { useNotificationStore } from "./useNotificationStore";
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_IP}:3000`;
 
+// Constants for notification types with persistence requirements
+const PERSISTENT_NOTIFICATION_TYPES = {
+  BILL_REQUEST: 'bill-request',
+  TABLE_CALL: 'table-call'
+};
+
 export const useSocketStore = create((set, get) => ({
   socket: null,
   error: null,
+  pendingRequests: [], // Store for persistent notifications that need attention
 
   initializeSocket: () => {
     const { socket } = get();
@@ -104,11 +111,81 @@ export const useSocketStore = create((set, get) => ({
       )?.table_num;
 
       if (role === "waiter") {
-        // Add to notification store with higher visibility
-        useNotificationStore.getState().addNotification({
+        // Add to notification store with higher visibility and mark as persistent
+        const notificationId = useNotificationStore.getState().addNotification({
           type: "warning",
-          text1: "Waiter Alert",
+          text1: "⚠️ URGENT: Table Needs Assistance",
           text2: `Table ${table_num || 'Unknown'} has called for a waiter`,
+          isPersistent: true,
+          notificationType: PERSISTENT_NOTIFICATION_TYPES.TABLE_CALL,
+          tableNum: table_num || 'Unknown',
+        });
+
+        // Add to pending requests for persistent reminder
+        const pendingRequests = get().pendingRequests;
+        set({
+          pendingRequests: [
+            ...pendingRequests,
+            {
+              id: notificationId,
+              type: PERSISTENT_NOTIFICATION_TYPES.TABLE_CALL,
+              tableNum: table_num || 'Unknown',
+              timestamp: new Date(),
+            }
+          ]
+        });
+
+        // Also show a toast for immediate attention
+        Toast.show({
+          type: 'warning',
+          text1: '⚠️ Table Calling Waiter',
+          text2: `Table ${table_num || 'Unknown'} needs assistance`,
+          visibilityTime: 6000,
+          autoHide: true,
+        });
+      }
+    });
+
+    newSocket.on("table-call-waiter-for-bill", (table_token) => {
+      const role = loginStore.getState().role;
+      const tables = useSharedStore.getState().tables;
+
+      const table_num = tables.find(
+        (table) => table.token === table_token
+      )?.table_num;
+
+      if (role === "waiter") {
+        // Add to notification store with higher visibility and mark as persistent/urgent
+        const notificationId = useNotificationStore.getState().addNotification({
+          type: "error", // Using error type for highest visibility
+          text1: "🔴 URGENT: Bill Request",
+          text2: `Table ${table_num || 'Unknown'} is waiting for the bill`,
+          isPersistent: true,
+          notificationType: PERSISTENT_NOTIFICATION_TYPES.BILL_REQUEST,
+          tableNum: table_num || 'Unknown',
+        });
+
+        // Add to pending requests for persistent reminder
+        const pendingRequests = get().pendingRequests;
+        set({
+          pendingRequests: [
+            ...pendingRequests,
+            {
+              id: notificationId,
+              type: PERSISTENT_NOTIFICATION_TYPES.BILL_REQUEST,
+              tableNum: table_num || 'Unknown',
+              timestamp: new Date(),
+            }
+          ]
+        });
+
+        // Also show a toast for immediate attention
+        Toast.show({
+          type: 'error',
+          text1: '🔴 Bill Request',
+          text2: `Table ${table_num || 'Unknown'} is waiting for the bill`,
+          visibilityTime: 6000,
+          autoHide: true,
         });
       }
     });
@@ -130,6 +207,16 @@ export const useSocketStore = create((set, get) => ({
         text1: "Table Status Updated",
         text2: `Table ${data.table_num} token has been reset`,
       });
+
+      // Remove any pending requests for this table
+      const pendingRequests = get().pendingRequests;
+      const filteredRequests = pendingRequests.filter(
+        req => req.tableNum !== data.table_num.toString()
+      );
+      
+      if (filteredRequests.length !== pendingRequests.length) {
+        set({ pendingRequests: filteredRequests });
+      }
     });
 
     newSocket.on("new-order", (data) => {
@@ -217,11 +304,49 @@ export const useSocketStore = create((set, get) => ({
     });
 
     set({ socket: newSocket });
+    
+    // Set up the reminder interval for pending requests
+    const reminderInterval = setInterval(() => {
+      const pendingRequests = get().pendingRequests;
+      if (pendingRequests.length > 0) {
+        // Send reminder notifications for pending requests
+        pendingRequests.forEach(req => {
+          const timeSinceRequest = (new Date() - new Date(req.timestamp)) / 1000 / 60; // minutes
+          
+          // Remind every 2 minutes for bill requests, 4 minutes for regular table calls
+          const reminderInterval = req.type === PERSISTENT_NOTIFICATION_TYPES.BILL_REQUEST ? 2 : 4;
+          
+          if (timeSinceRequest >= reminderInterval && timeSinceRequest % reminderInterval < 1) {
+            // It's time for a reminder
+            const urgencyPrefix = req.type === PERSISTENT_NOTIFICATION_TYPES.BILL_REQUEST ? 
+              '🔴 REMINDER: Bill Request' : '⚠️ REMINDER: Table Waiting';
+              
+            useNotificationStore.getState().addNotification({
+              type: req.type === PERSISTENT_NOTIFICATION_TYPES.BILL_REQUEST ? "error" : "warning",
+              text1: urgencyPrefix,
+              text2: `Table ${req.tableNum} has been waiting for ${Math.floor(timeSinceRequest)} minutes`,
+              isPersistent: true,
+            });
+            
+            // Also show a toast for immediate attention
+            Toast.show({
+              type: req.type === PERSISTENT_NOTIFICATION_TYPES.BILL_REQUEST ? 'error' : 'warning',
+              text1: urgencyPrefix,
+              text2: `Table ${req.tableNum} waiting for ${Math.floor(timeSinceRequest)} min`,
+              visibilityTime: 4000,
+              autoHide: true,
+            });
+          }
+        });
+      }
+    }, 60000); // Check every minute
+
     return () => {
       if (newSocket) {
         newSocket.disconnect();
         set({ socket: null });
       }
+      clearInterval(reminderInterval);
     };
   },
 
@@ -265,6 +390,24 @@ export const useSocketStore = create((set, get) => ({
         });
       }
     });
+  },
+
+  // Clear a pending request when it's been handled
+  clearPendingRequest: (tableNum) => {
+    const pendingRequests = get().pendingRequests;
+    const filteredRequests = pendingRequests.filter(
+      req => req.tableNum !== tableNum
+    );
+    set({ pendingRequests: filteredRequests });
+  },
+
+  // Get list of tables with pending requests for display
+  getPendingRequestTables: () => {
+    return get().pendingRequests.map(req => ({
+      tableNum: req.tableNum,
+      type: req.type,
+      timestamp: req.timestamp
+    }));
   },
 
   emitLocalOrderProcessed: (orderId) => {

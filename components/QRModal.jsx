@@ -11,7 +11,7 @@ const QRModal = ({ visible, onClose, table_num }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const qrRef = useRef(null);
-    const hasGeneratedRef = useRef(false);
+    const lastTableRef = useRef(null);
     const tables = useSharedStore((state) => state.tables);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
 
@@ -65,51 +65,57 @@ const QRModal = ({ visible, onClose, table_num }) => {
         }
     };
 
+    // Reset state when modal is closed
+    useEffect(() => {
+        if (!visible) {
+            setQrValue('');
+            setError(null);
+        }
+    }, [visible]);
+
+    // Generate QR code when modal is visible and table_num is available
     useEffect(() => {
         if (!visible || !table_num || !tables) return;
 
-        // Reset the flag when modal is closed
-        if (!visible) {
-            hasGeneratedRef.current = false;
-            return;
+        // Check if this is a different table than before
+        const isDifferentTable = lastTableRef.current !== table_num;
+        lastTableRef.current = table_num;
+
+        // Only generate if we don't have a QR value yet or it's a different table
+        if (qrValue === '' || isDifferentTable) {
+            const generateQRAndUpdateTable = async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                    const table = tables.find(t => String(t.table_num) === String(table_num));
+                    if (!table) {
+                        throw new Error('Table not found');
+                    }
+
+                    const { url } = await qrService.generateToken(table_num);
+                    if (!url) throw new Error('Invalid QR code data');
+                    setQrValue(url);
+
+                    // Only update status if not already unavailable
+                    if (table.table_status !== "Unavailable") {
+                        await updateTableStatus(table_num, "Unavailable");
+                    }
+                } catch (error) {
+                    console.error('Operation failed:', error);
+                    setError('Failed to generate QR code. Please try again.');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            generateQRAndUpdateTable();
         }
-
-        // Prevent multiple generations for the same session
-        if (hasGeneratedRef.current) return;
-
-        const generateQRAndUpdateTable = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const table = tables.find(t => String(t.table_num) === String(table_num));
-                if (!table) {
-                    throw new Error('Table not found');
-                }
-
-                const { url } = await qrService.generateToken(table_num);
-                if (!url) throw new Error('Invalid QR code data');
-                setQrValue(url);
-                hasGeneratedRef.current = true;
-
-                // Only update status if not already unavailable
-                if (table.table_status !== "Unavailable") {
-                    await updateTableStatus(table_num, "Unavailable");
-                }
-            } catch (error) {
-                console.error('Operation failed:', error);
-                setError('Failed to generate QR code. Please try again.');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        generateQRAndUpdateTable();
-    }, [visible, table_num]); // Remove tables from dependencies
+    }, [visible, table_num, tables, qrValue]);
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
                 <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: '80%', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 18, marginBottom: 16 }}>Scan this QR code to view the menu</Text>
+                    <Text style={{ fontSize: 18, marginBottom: 16 }}>Scan this QR code for table {table_num}</Text>
                     <View style={{ padding: 10, backgroundColor: 'white', borderRadius: 8 }}>
                         {isLoading ? (
                             <ActivityIndicator size="large" color="#0000ff" />

@@ -27,8 +27,8 @@ export default function RootComponent({ children }) {
       )}
       <NotificationsPanel />
       <NotificationToast />
-      </View>
-      );
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
