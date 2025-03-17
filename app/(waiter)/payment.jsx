@@ -11,6 +11,7 @@ import DiscountButton from "../../components/DiscountButton";
 import { initializePrinter, printReceipt } from '../../utils/printerUtil';
 import { updateOrderWithPayment } from '../../services/orderService';
 import { useReservationStore } from "../../hooks/useReservationStore";
+import { fetchAdminSettings } from "../../services/adminSettingsService";
 
 const Payment = () => {
   const orders = useSharedStore((state) => state.orders);
@@ -26,9 +27,67 @@ const Payment = () => {
   const [discount, setDiscount] = useState(0);
   const [cashReceived, setCashReceived] = useState(0);
   const [disableButton, setDisableButton] = useState(false);
+  const [adminSettings, setAdminSettings] = useState({
+    vat_rate: 7, // Default 7%
+    service_charge_rate: 10, // Default 10%
+    allowed_discount_options: [0, 5, 10, 15, 20, 50], // Default discount options
+    cash_amount_options: [100, 200, 300, 500] // Default cash amount options
+  });
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
-  const DISCOUNT_OPTIONS = [0, 5, 10, 15, 20, 50];
-  const CASH_AMOUNTS = [100, 200, 300, 500];
+  // Use admin settings or fall back to defaults
+  const DISCOUNT_OPTIONS = adminSettings.allowed_discount_options || [0, 5, 10, 15, 20, 50];
+  const CASH_AMOUNTS = adminSettings.cash_amount_options || [100, 200, 300, 500];
+
+  // Fetch admin settings from the server
+  useEffect(() => {
+    const loadAdminSettings = async () => {
+      try {
+        setIsLoadingSettings(true);
+        const data = await fetchAdminSettings();
+        
+        // Process the settings into a usable format
+        const settings = {};
+        
+        // Map the correct setting keys from the database to our internal keys
+        data.forEach(item => {
+          if (item.setting_key === 'vat_percentage') {
+            settings.vat_rate = parseFloat(item.setting_value) || 7;
+          } 
+          else if (item.setting_key === 'service_charge_percentage') {
+            settings.service_charge_rate = parseFloat(item.setting_value) || 10;
+          }
+          else if (item.setting_key === 'allowed_discount_options') {
+            try {
+              settings.allowed_discount_options = JSON.parse(item.setting_value);
+            } catch (e) {
+              console.error('Failed to parse discount options:', e);
+            }
+          }
+          else if (item.setting_key === 'cash_amount_options') {
+            try {
+              settings.cash_amount_options = JSON.parse(item.setting_value);
+            } catch (e) {
+              console.error('Failed to parse cash options:', e);
+            }
+          }
+          // Store other settings we might need
+          else {
+            settings[item.setting_key] = item.setting_value;
+          }
+        });
+        
+        setAdminSettings(prevSettings => ({...prevSettings, ...settings}));
+      } catch (error) {
+        console.error('Error fetching admin settings:', error);
+        // Continue with default values
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+
+    loadAdminSettings();
+  }, []);
 
   const parsedOrder = useMemo(
     () => findOrdersForTable(selectedTable?.table_num, orders),
@@ -121,18 +180,23 @@ const Payment = () => {
       orderItems?.reduce((sum, item) => sum + item.price * item.quantity, 0) ||
       0;
 
+    // Use admin settings for tax rate and service charge
     const discountAmount = subtotal * (discount / 100);
-    const vat = subtotal * 0.1;
-    const total = subtotal - discountAmount + vat;
+    const vatRate = adminSettings.vat_rate / 100;
+    const serviceChargeRate = adminSettings.service_charge_rate / 100;
+    
+    const vat = subtotal * vatRate;
+    const serviceCharge = subtotal * serviceChargeRate;
+    const total = subtotal - discountAmount + vat + serviceCharge;
 
     return {
       subtotal,
-      serviceCharge: 0,
+      serviceCharge,
       discountAmount,
       vat,
       total,
     };
-  }, [orderItems, discount]);
+  }, [orderItems, discount, adminSettings.vat_rate, adminSettings.service_charge_rate]);
 
   const { subtotal, serviceCharge, discountAmount, vat, total } = calculations;
 
@@ -269,9 +333,12 @@ const finishPayment = useCallback(async () => {
         discount,
         discountAmount,
         vat,
+        serviceCharge,
         total,
         method: selectedMethod,
-        cashReceived
+        cashReceived,
+        vatRate: adminSettings.vat_rate,
+        serviceChargeRate: adminSettings.service_charge_rate
       };
 
       await printReceipt(orderDetails, paymentDetails);
@@ -285,6 +352,15 @@ const finishPayment = useCallback(async () => {
     return (
       <View className="flex-1 justify-center items-center">
         <Text>Please select a table first</Text>
+      </View>
+    );
+  }
+
+  // Show loading indicator while fetching settings
+  if (isLoadingSettings) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <Text>Loading payment settings...</Text>
       </View>
     );
   }
@@ -427,14 +503,14 @@ const finishPayment = useCallback(async () => {
               {/* Summary */}
               <View className="mt-2">
                 {[{ label: "Subtotal", value: subtotal },
-                  { label: "Service Charge", value: serviceCharge },
-                  { label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true },
-                  { label: "VAT (10%)", value: vat },
-                ].map(({ label, value, isNegative }) => (
+                  { label: `Service Charge (${adminSettings.service_charge_rate}%)`, value: serviceCharge, hideWhenZero: true },
+                  { label: `Discount (${discount}%)`, value: -discountAmount, isNegative: true, hideWhenZero: true },
+                  { label: `VAT (${adminSettings.vat_rate}%)`, value: vat, hideWhenZero: true },
+                ].filter(item => !(item.hideWhenZero && item.value === 0))
+                 .map(({ label, value, isNegative }) => (
                   <View key={label} className="flex flex-row justify-between">
                     <Text className="text-gray-600 text-sm">{label}</Text>
-                    <Text className={`font-medium text-sm ${isNegative ? "text-red-500" : ""
-                      }`}>
+                    <Text className={`font-medium text-sm ${isNegative ? "text-red-500" : ""}`}>
                       {isNegative ? "-" : ""}${Math.abs(value).toFixed(2)}
                     </Text>
                   </View>
@@ -446,12 +522,10 @@ const finishPayment = useCallback(async () => {
 
                 {selectedMethod === "cash" && cashReceived > 0 && (
                   <View className="flex flex-row justify-between pt-1 border-t border-dashed">
-                    <Text className={`font-bold ${cashReceived > total ? "text-green-500" : "text-red-500"
-                      }`}>
+                    <Text className={`font-bold ${cashReceived > total ? "text-green-500" : "text-red-500"}`}>
                       Change
                     </Text>
-                    <Text className={`${cashReceived > total ? "text-green-500" : "text-red-500"
-                      }`}>
+                    <Text className={`${cashReceived > total ? "text-green-500" : "text-red-500"}`}>
                       ${Math.abs(cashReceived - total).toFixed(2)}
                     </Text>
                   </View>
