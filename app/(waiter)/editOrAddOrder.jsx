@@ -461,7 +461,7 @@ const EditOrAddOrder = () => {
                     </View>
                     <View className="p-5 border-t border-gray-200 bg-white">
                         <Text className="text-xl font-bold mb-4">
-                            Total: ${total.toFixed(2)}
+                            Total: ฿{total.toFixed(2)}
                         </Text>
                         <TouchableOpacity
                             className={`bg-primary p-4 rounded-lg ${disableButton ? 'opacity-70' : ''}`}

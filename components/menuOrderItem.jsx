@@ -21,7 +21,7 @@ const MenuOrderItem = ({ order, onDecrease, handleNotesChange, onIncrease }) => 
                 {/* Header row with name and price */}
                 <View className="flex-row justify-between items-start mb-2">
                     <Text className="font-bold text-lg text-gray-800 flex-1 mr-4">{order.name}</Text>
-                    <Text className="text-gray-600 font-medium">${order.price.toFixed(2)}</Text>
+                    <Text className="text-gray-600 font-medium">฿{order.price.toFixed(2)}</Text>
                 </View>
 
                 {/* Notes row */}

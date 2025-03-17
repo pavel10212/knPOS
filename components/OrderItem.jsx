@@ -77,9 +77,9 @@ const OrderItem = ({ order }) => {
   // Format the total amount with proper currency symbol
   const formattedTotal = useMemo(() => {
     if (typeof order.total_amount === 'number') {
-      return `$${order.total_amount.toFixed(2)}`;
+      return `฿${order.total_amount.toFixed(2)}`;
     }
-    return order.total || '$0.00';
+    return order.total || '฿0.00';
   }, [order.total_amount, order.total]);
 
   return (
@@ -108,7 +108,7 @@ const OrderItem = ({ order }) => {
                   <Text className="font-medium text-base">{item.name}</Text>
                   <Text className="font-medium text-sm">x{item.quantity}</Text>
                   <Text className="font-bold text-base">
-                    ${(Number(item.price) || 0).toFixed(2)}
+                    ฿{(Number(item.price) || 0).toFixed(2)}
                   </Text>
                 </View>
                 {item.request ? (

@@ -1,32 +1,69 @@
 export const parseOrderDetails = (orderDetails) => {
   try {
-    return typeof orderDetails === 'string'
-      ? JSON.parse(orderDetails)
-      : Array.isArray(orderDetails)
-        ? orderDetails
-        : [];
+    // If orderDetails is undefined or null, return empty array
+    if (!orderDetails) {
+      console.warn('Order details is null or undefined');
+      return [];
+    }
+
+    // If it's a string, try to parse it
+    if (typeof orderDetails === 'string') {
+      try {
+        const parsed = JSON.parse(orderDetails);
+        if (!Array.isArray(parsed)) {
+          console.warn('Parsed order details is not an array');
+          return [];
+        }
+        return parsed;
+      } catch (error) {
+        console.error('Failed to parse order details string:', error);
+        return [];
+      }
+    }
+
+    // If it's already an array, use it
+    if (Array.isArray(orderDetails)) {
+      return orderDetails;
+    }
+
+    console.warn('Order details is neither string nor array:', typeof orderDetails);
+    return [];
   } catch (error) {
-    console.error('Failed to parse order details:', error);
+    console.error('Unexpected error parsing order details:', error);
     return [];
   }
 };
 
 export const createMenuItemsMap = (menuItems) => {
-  return (menuItems || []).reduce((map, item) => {
-    map[item.menu_item_id] = item;
+  if (!Array.isArray(menuItems)) {
+    console.warn('menuItems is not an array');
+    return {};
+  }
+
+  return menuItems.reduce((map, item) => {
+    if (item && item.menu_item_id) {
+      map[item.menu_item_id] = item;
+    }
     return map;
   }, {});
 };
 
 export const getInitialCheckedItems = (orders) => {
+  if (!Array.isArray(orders)) {
+    console.warn('orders is not an array');
+    return {};
+  }
+
   const checkedState = {};
   orders.forEach(order => {
-    if (!order || !order.order_details) return;
+    if (!order) return;
     
     const details = parseOrderDetails(order.order_details);
     details.forEach(item => {
+      if (!item) return;
+      
       const cartItemId = item.cartItemId || item.cartItemID;
-      if (cartItemId) {
+      if (cartItemId && order.order_id) {
         checkedState[`${order.order_id}-${cartItemId}`] = item.status === 'Completed';
       }
     });
@@ -35,13 +72,9 @@ export const getInitialCheckedItems = (orders) => {
 };
 
 export const deduplicateOrders = (orders) => {
-  if (!orders) return [];
-  // Use a Map to track unique order IDs
-  const uniqueOrdersMap = new Map();
-  orders.forEach(order => {
-    if (order && !uniqueOrdersMap.has(order.order_id)) {
-      uniqueOrdersMap.set(order.order_id, order);
-    }
-  });
-  return Array.from(uniqueOrdersMap.values());
+  if (!Array.isArray(orders)) {
+    console.warn('orders is not an array');
+    return [];
+  }
+  return orders.filter(Boolean); // Remove any null/undefined orders
 };

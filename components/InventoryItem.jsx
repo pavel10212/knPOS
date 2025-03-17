@@ -58,7 +58,7 @@ const InventoryItem = ({
                             color: '#059669',
                             marginLeft: 4
                         }}>
-                            ${parseFloat(unit).toFixed(2)}
+                            ฿{parseFloat(unit).toFixed(2)}
                         </Text>
                     </View>
 

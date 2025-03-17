@@ -7,9 +7,9 @@ const PayItem = ({ item }) => {
     return (
         <View className='flex flex-row justify-between items-center py-4 px-4 border-b border-gray-100'>
             <Text className='w-[40%] font-medium'>{item.name}</Text>
-            <Text className='w-[20%] text-center'>${item.price}</Text>
+            <Text className='w-[20%] text-center'>฿{item.price}</Text>
             <Text className='w-[20%] text-center'>{item.quantity}</Text>
-            <Text className='w-[20%] text-right'>${subtotal.toFixed(2)}</Text>
+            <Text className='w-[20%] text-right'>฿{subtotal.toFixed(2)}</Text>
         </View>
     );
 };

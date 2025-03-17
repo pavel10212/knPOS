@@ -89,7 +89,7 @@ const MenuItem = ({
                         fontWeight: '600',
                         color: '#059669'
                     }}>
-                        ${parseFloat(price).toFixed(2)}
+                        ฿{parseFloat(price).toFixed(2)}
                     </Text>
 
                     {onChangeQuantity && (

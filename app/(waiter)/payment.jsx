@@ -99,51 +99,75 @@ const Payment = () => {
     if (!parsedOrder?.length) return [];
 
     // Create temporaryItems array with all individual items
-    const temporaryItems = parsedOrder.flatMap((order, orderIndex) =>
-      order.order_details.map((orderDetail, detailIndex) => {
+    const temporaryItems = parsedOrder.flatMap((order, orderIndex) => {
+      // Safely parse order details
+      let details = [];
+      try {
+        details = typeof order.order_details === 'string' 
+          ? JSON.parse(order.order_details) 
+          : Array.isArray(order.order_details) 
+            ? order.order_details 
+            : [];
+      } catch (error) {
+        console.error('Failed to parse order details:', error);
+        return [];
+      }
+
+      if (!Array.isArray(details)) {
+        console.error('Order details is not an array:', order.order_id);
+        return [];
+      }
+
+      return details.map((orderDetail, detailIndex) => {
+        if (!orderDetail) return null;
+
         // Check if the item is from inventory or menu
         if (orderDetail.type === 'inventory') {
           const inventoryItem = inventory?.find(
             (item) => item.inventory_item_id === orderDetail.inventory_item_id
           );
+          if (!inventoryItem) return null;
+          
           return {
             id: `${order.order_id}-inv-${orderDetail.inventory_item_id}-${orderIndex}-${detailIndex}`,
-            name: inventoryItem?.inventory_item_name,
-            price: inventoryItem?.cost_per_unit,
-            quantity: orderDetail.quantity,
+            name: inventoryItem.inventory_item_name || 'Unknown Item',
+            price: inventoryItem.cost_per_unit || 0,
+            quantity: orderDetail.quantity || 0,
             originalOrderId: order.order_id,
             originalInventoryItemId: orderDetail.inventory_item_id,
             type: 'inventory',
-            // This key will be used for grouping
             groupKey: `inventory-${orderDetail.inventory_item_id}`
           };
         } else {
           const menuItem = menu?.find(
             (item) => item.menu_item_id === orderDetail.menu_item_id
           );
+          if (!menuItem) return null;
+
           return {
             id: `${order.order_id}-menu-${orderDetail.menu_item_id}-${orderIndex}-${detailIndex}`,
-            name: menuItem?.menu_item_name,
-            price: menuItem?.price,
-            quantity: orderDetail.quantity,
+            name: menuItem.menu_item_name || 'Unknown Item',
+            price: menuItem.price || 0,
+            quantity: orderDetail.quantity || 0,
             originalOrderId: order.order_id,
             originalMenuItemId: orderDetail.menu_item_id,
             type: 'menu',
-            // This key will be used for grouping
             groupKey: `menu-${orderDetail.menu_item_id}`
           };
         }
-      })
-    );
+      }).filter(Boolean); // Remove any null items
+    });
 
     // Group items by groupKey and combine quantities
     const groupedItems = temporaryItems.reduce((acc, item) => {
+      if (!item || !item.groupKey) return acc;
+
       // If this groupKey doesn't exist yet, create it
       if (!acc[item.groupKey]) {
         acc[item.groupKey] = { ...item };
       } else {
         // If groupKey exists, add the quantity
-        acc[item.groupKey].quantity += item.quantity;
+        acc[item.groupKey].quantity += (item.quantity || 0);
         
         // Store multiple order IDs for reference if they're different
         if (acc[item.groupKey].originalOrderId !== item.originalOrderId) {
@@ -250,8 +274,6 @@ const Payment = () => {
 const finishPayment = useCallback(async () => {
     try {
       console.log("Starting order submission process...");
-      console.log("Current button state:", disableButton ? "Disabled" : "Enabled");
-      
       setDisableButton(true);
       
       if (!selectedTable) {
@@ -259,9 +281,17 @@ const finishPayment = useCallback(async () => {
         setDisableButton(false);
         return;
       }
+
+      if (!parsedOrder?.length) {
+        console.log("No orders found for table, aborting payment");
+        setDisableButton(false);
+        return;
+      }
       
       // Create a map of orderItems for quick lookups
-      const orderItemsMap = orderItems.reduce((acc, item) => {
+      const orderItemsMap = (orderItems || []).reduce((acc, item) => {
+        if (!item?.originalOrderId) return acc;
+        
         const orderIds = item.relatedOrderIds 
           ? [item.originalOrderId, ...item.relatedOrderIds] 
           : [item.originalOrderId];
@@ -276,31 +306,52 @@ const finishPayment = useCallback(async () => {
       // First, update all orders to completed status
       const updatedOrders = await Promise.all(
         parsedOrder.map(async (order) => {
+          // Safely parse or handle order details
+          let orderDetails = [];
+          try {
+            orderDetails = typeof order.order_details === 'string'
+              ? JSON.parse(order.order_details)
+              : Array.isArray(order.order_details) 
+                ? order.order_details 
+                : [];
+          } catch (error) {
+            console.error('Failed to parse order details:', error);
+            orderDetails = [];
+          }
+
+          if (!Array.isArray(orderDetails)) {
+            console.error('Order details is not an array:', order.order_id);
+            orderDetails = [];
+          }
+
           const updatedOrderDetails = JSON.stringify(
-            order.order_details.map((orderDetail) => ({
+            orderDetails.map((orderDetail) => ({
               ...orderDetail,
               status: "completed",
               menu_item_id: orderDetail.menu_item_id,
               inventory_item_id: orderDetail.inventory_item_id,
               type: orderDetail.type || 'menu',
-              quantity: orderDetail.quantity,
+              quantity: orderDetail.quantity || 0,
               request: orderDetail.request || ""
             }))
           );
 
           return await updateOrderWithPayment(order.order_id, updatedOrderDetails, {
-            total: calculations.total
+            total: calculations.total,
+            tipAmount: 0,
           });
         })
       );
 
       // Update orders in the store to reflect completed status
       setOrders(prevOrders => {
-        const nonTableOrders = prevOrders.filter(order => !parsedOrder.find(po => po.order_id === order.order_id));
+        const nonTableOrders = (prevOrders || []).filter(order => 
+          !parsedOrder.find(po => po.order_id === order.order_id)
+        );
         return [...nonTableOrders, ...updatedOrders];
       });
 
-      // Check for active reservation for this table and mark it as completed
+      // Check for active reservation and mark as completed
       const activeReservation = findActiveReservation();
       if (activeReservation) {
         console.log(`Marking reservation ${activeReservation.reservation_id} as completed after payment`);
@@ -315,11 +366,9 @@ const finishPayment = useCallback(async () => {
       console.error("Error handling order:", error);
       Alert.alert("Error", "Failed to complete payment");
     } finally {
-      // Always ensure the button is re-enabled, even if there's an error
-      console.log("Resetting button state to enabled");
       setDisableButton(false);
     }
-  }, [selectedTable, parsedOrder, orderItems, calculations.total, selectedMethod, findActiveReservation, updateReservationStatus]);
+  }, [selectedTable, parsedOrder, orderItems, calculations.total, findActiveReservation, updateReservationStatus, resetTableToken]);
 
   const handlePrintReceipt = async () => {
     try {
@@ -411,7 +460,7 @@ const finishPayment = useCallback(async () => {
                 Payable Amount
               </Text>
               <Text className="text-xl font-medium text-[#D89F65]">
-                ${total.toFixed(2)}
+                ฿{total.toFixed(2)}
               </Text>
 
               {/* Payment Methods */}
@@ -458,7 +507,7 @@ const finishPayment = useCallback(async () => {
                       <Text className="font-medium">Cash Received</Text>
                       <TextInput
                         className="border-b bg-white px-4 py-2 rounded-lg w-[120px] text-center"
-                        placeholder="$0.00"
+                        placeholder="฿0.00"
                         value={cashReceived.toString()}
                         onChangeText={(text) =>
                           setCashReceived(parseFloat(text) || 0)
@@ -491,7 +540,7 @@ const finishPayment = useCallback(async () => {
                               : "text-gray-700"
                               }`}
                           >
-                            ${amount}
+                            ฿{amount}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -511,13 +560,13 @@ const finishPayment = useCallback(async () => {
                   <View key={label} className="flex flex-row justify-between">
                     <Text className="text-gray-600 text-sm">{label}</Text>
                     <Text className={`font-medium text-sm ${isNegative ? "text-red-500" : ""}`}>
-                      {isNegative ? "-" : ""}${Math.abs(value).toFixed(2)}
+                      {isNegative ? "-" : ""}฿{Math.abs(value).toFixed(2)}
                     </Text>
                   </View>
                 ))}
                 <View className="flex flex-row justify-between pt-1 border-t border-dashed">
                   <Text className="font-bold">Total</Text>
-                  <Text className="font-bold text-[#D89F65]">${total.toFixed(2)}</Text>
+                  <Text className="font-bold text-[#D89F65]">฿{total.toFixed(2)}</Text>
                 </View>
 
                 {selectedMethod === "cash" && cashReceived > 0 && (
@@ -526,7 +575,7 @@ const finishPayment = useCallback(async () => {
                       Change
                     </Text>
                     <Text className={`${cashReceived > total ? "text-green-500" : "text-red-500"}`}>
-                      ${Math.abs(cashReceived - total).toFixed(2)}
+                      ฿{Math.abs(cashReceived - total).toFixed(2)}
                     </Text>
                   </View>
                 )}
