@@ -13,11 +13,10 @@ export const startReservationTableManager = () => {
   
   // Perform one-time check to ensure tables are properly marked
   setTimeout(() => {
-    console.log("🕒 Performing initial reservation check");
+    console.log("🕒 Performing one-time reservation check");
     checkAndUpdateTableStatuses(true);
   }, 5000); // Wait 5 seconds for data to load
   
-  // No polling interval anymore - we rely on websockets for updates
   return () => {
     console.log("🛑 Stopped reservation table manager");
   };
@@ -38,7 +37,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
   console.log("⏰ Checking reservations to update table statuses...");
   
   try {
-    // Force refresh to get the latest reservation data
+    // Single fetch of reservation data
     const data = await useReservationStore.getState().fetchAllReservationData(forceRefresh);
     const { today: todayReservations, all: upcomingReservations } = data;
     
@@ -52,7 +51,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
     const reserveBeforeTime = new Date(currentTime.getTime() + (HOURS_BEFORE_RESERVATION * 60 * 60 * 1000));
     
     // Filter to find reservations within our window
-    const relevantReservations = upcomingReservations.filter(reservation => {
+    const relevantReservations = upcomingReservations?.filter(reservation => {
       // Skip cancelled reservations
       if (reservation.status === "cancelled") return false;
       
@@ -65,7 +64,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
       // and the status is not seated or completed, it's relevant
       return reservationTime <= reserveBeforeTime && 
              !["seated", "completed"].includes(reservation.status);
-    });
+    }) || [];
     
     console.log(`Found ${relevantReservations.length} reservations to process`);
     
@@ -96,7 +95,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
     }
     
     // Also check for completed/cancelled reservations to potentially free up tables
-    const pastReservations = upcomingReservations.filter(reservation => {
+    const pastReservations = upcomingReservations?.filter(reservation => {
       // Only consider completed, cancelled, or reservations that have passed
       if (["completed", "cancelled"].includes(reservation.status)) return true;
       
@@ -107,7 +106,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
         
       // If end time has passed
       return endTime < currentTime;
-    });
+    }) || [];
     
     // Process each past reservation to free up tables if necessary
     for (const reservation of pastReservations) {
