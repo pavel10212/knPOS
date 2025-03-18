@@ -193,10 +193,25 @@ const Payment = () => {
   }, [transformedOrder]);
 
   useEffect(() => {
-    initializePrinter().catch(err => {
-      console.error('Printer initialization failed:', err);
-      Alert.alert('Printer Error', 'Failed to initialize printer');
-    });
+    // Initialize printer without blocking or crashing if it fails
+    const initPrinter = async () => {
+      try {
+        const success = await initializePrinter();
+        if (!success) {
+          console.log("Printer initialization deferred - will retry when printing");
+        }
+      } catch (err) {
+        // Log but don't alert since this is just initial connection
+        console.warn('Initial printer connection deferred:', err.message);
+      }
+    };
+    
+    // Use a slight delay to prevent initialization during critical app startup
+    const timer = setTimeout(() => {
+      initPrinter();
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const calculations = useMemo(() => {
@@ -390,10 +405,15 @@ const finishPayment = useCallback(async () => {
         serviceChargeRate: adminSettings.service_charge_rate
       };
 
-      await printReceipt(orderDetails, paymentDetails);
+      const success = await printReceipt(orderDetails, paymentDetails);
+      if (success) {
+        // Only show success message if printing actually worked
+        Alert.alert('Success', 'Receipt printed successfully');
+      }
+      // Error alerts are handled inside printReceipt
     } catch (error) {
-      console.error('Failed to print receipt:', error);
-      Alert.alert('Print Error', 'Failed to print receipt');
+      console.error('Receipt printing error:', error);
+      Alert.alert('Print Error', 'Failed to print receipt. The system will automatically retry.');
     }
   };
 

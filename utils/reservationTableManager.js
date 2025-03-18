@@ -2,58 +2,32 @@ import { useReservationStore } from "../hooks/useReservationStore";
 import { tableStore } from "../hooks/useStore";
 import { useSharedStore } from "../hooks/useSharedStore";
 
-// Interval in milliseconds to check reservation statuses (every 5 minutes)
-const CHECK_INTERVAL = 5 * 60 * 1000;
-
 // How many hours before a reservation to mark the table as reserved
 const HOURS_BEFORE_RESERVATION = 2;
-
-let intervalId = null;
-let isInitialCheckCompleted = false;
 
 /**
  * Start monitoring reservations and automatically update table statuses
  */
 export const startReservationTableManager = () => {
-  if (intervalId) {
-    console.log("Reservation table manager already running");
-    return;
-  }
-
   console.log("🔄 Starting reservation table manager");
   
-  // We'll delay the initial check to ensure data is loaded
-  const initialCheckDelay = setTimeout(() => {
-    console.log("🕒 Performing delayed initial reservation check to ensure data is loaded");
+  // Perform one-time check to ensure tables are properly marked
+  setTimeout(() => {
+    console.log("🕒 Performing initial reservation check");
     checkAndUpdateTableStatuses(true);
-    
-    // Set up interval for regular checks after initial check
-    intervalId = setInterval(() => {
-      checkAndUpdateTableStatuses();
-    }, CHECK_INTERVAL);
   }, 5000); // Wait 5 seconds for data to load
   
+  // No polling interval anymore - we rely on websockets for updates
   return () => {
-    if (initialCheckDelay) {
-      clearTimeout(initialCheckDelay);
-    }
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-      console.log("🛑 Stopped reservation table manager");
-    }
+    console.log("🛑 Stopped reservation table manager");
   };
 };
 
 /**
- * Stop the reservation table manager
+ * Stop the reservation table manager - kept for API compatibility
  */
 export const stopReservationTableManager = () => {
-  if (intervalId) {
-    clearInterval(intervalId);
-    intervalId = null;
-    console.log("🛑 Stopped reservation table manager");
-  }
+  console.log("🛑 Stopped reservation table manager");
 };
 
 /**
@@ -69,18 +43,6 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
     const { today: todayReservations, all: upcomingReservations } = data;
     
     console.log(`📊 Found ${upcomingReservations?.length || 0} total upcoming reservations`);
-    
-    // If we didn't get any reservations and this is the initial check, try again after a delay
-    if ((!upcomingReservations || upcomingReservations.length === 0) && !isInitialCheckCompleted) {
-      console.log("⚠️ No reservations found on initial check, will retry after delay");
-      setTimeout(() => {
-        checkAndUpdateTableStatuses(true);
-      }, 10000); // Try again after 10 seconds
-      return;
-    }
-    
-    // Mark that we've completed the initial check
-    isInitialCheckCompleted = true;
     
     // Get current tables
     const tables = useSharedStore.getState().tables;
@@ -125,7 +87,7 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
       console.log(`🔄 Marking table ${tableNum} as Reserved for upcoming reservation at ${new Date(reservation.reservation_time).toLocaleTimeString()}`);
       
       try {
-        // Update the table status to Reserved - no longer passing reservation details
+        // Update the table status to Reserved
         await tableStore.getState().updateTableStatus(tableNum, 'Reserved');
         console.log(`✅ Table ${tableNum} marked as Reserved successfully`);
       } catch (error) {
@@ -180,7 +142,6 @@ const checkAndUpdateTableStatuses = async (forceRefresh = false) => {
         }
       }
     }
-    
   } catch (error) {
     console.error("❌ Error checking reservations for table updates:", error);
   }

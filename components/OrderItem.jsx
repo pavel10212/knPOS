@@ -105,14 +105,24 @@ const OrderItem = ({ order }) => {
                 className="py-2 border-t border-gray-200"
               >
                 <View className="flex flex-row justify-between items-center">
-                  <Text className="font-medium text-base">{item.name}</Text>
+                  <Text 
+                    className="font-medium text-base flex-1 mr-2" 
+                    numberOfLines={1} 
+                    ellipsizeMode="tail"
+                  >
+                    {item.name}
+                  </Text>
                   <Text className="font-medium text-sm">x{item.quantity}</Text>
-                  <Text className="font-bold text-base">
+                  <Text className="font-bold text-base ml-2">
                     ฿{(Number(item.price) || 0).toFixed(2)}
                   </Text>
                 </View>
                 {item.request ? (
-                  <Text className="text-sm text-blue-600">
+                  <Text 
+                    className="text-sm text-blue-600" 
+                    numberOfLines={1} 
+                    ellipsizeMode="tail"
+                  >
                     Request: {item.request}
                   </Text>
                 ) : null}
