@@ -370,13 +370,14 @@ export const useReservationStore = create((set, get) => ({
       const existingEndWithBuffer = new Date(resEnd.getTime() + bufferMs);
 
       // For debugging
-      console.log(`Comparing reservation at ${requestStart.toLocaleTimeString()} with existing at ${resStart.toLocaleTimeString()}`);
+      console.log(`Comparing reservation at ${requestStart.toLocaleTimeString()} - ${requestEnd.toLocaleTimeString()} with existing at ${resStart.toLocaleTimeString()} - ${resEnd.toLocaleTimeString()}`);
       console.log(`Buffered existing: ${existingStartWithBuffer.toLocaleTimeString()} to ${existingEndWithBuffer.toLocaleTimeString()}`);
 
-      // Check if the requested reservation overlaps with the existing reservation's buffered time
-      // Overlap occurs if the new reservation doesn't end before the buffered start
-      // or doesn't start after the buffered end
-      return !(requestEnd <= existingStartWithBuffer || requestStart >= existingEndWithBuffer);
+      // Fixed overlap detection logic:
+      // There's an overlap if:
+      // 1. The new reservation starts before the existing one ends (with buffer) AND
+      // 2. The new reservation ends after the existing one starts (with buffer)
+      return (requestStart < existingEndWithBuffer) && (requestEnd > existingStartWithBuffer);
     });
 
     return {
