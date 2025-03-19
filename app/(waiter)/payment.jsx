@@ -417,6 +417,20 @@ const finishPayment = useCallback(async () => {
     }
   };
 
+  // Function to determine if payment can be completed
+  const canCompletePayment = useMemo(() => {
+    // If payment method is QR, always allow completion
+    if (selectedMethod === "qr") return true;
+    
+    // For cash payment, check if received amount is sufficient
+    if (selectedMethod === "cash") {
+      return cashReceived >= total;
+    }
+    
+    // No payment method selected
+    return false;
+  }, [selectedMethod, cashReceived, total]);
+
   if (!selectedTable) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -609,10 +623,15 @@ const finishPayment = useCallback(async () => {
             <View className="flex-row flex gap-4">
               <TouchableOpacity
                 onPress={() => finishPayment()}
-                className="flex-1 bg-primary p-4 rounded-lg"
+                disabled={disableButton || !canCompletePayment}
+                className={`flex-1 p-4 rounded-lg ${
+                  disableButton || !canCompletePayment ? "bg-gray-400" : "bg-primary"
+                }`}
               >
                 <Text className="text-white text-center font-bold text-lg">
-                  Complete
+                  {selectedMethod === "cash" && cashReceived < total
+                    ? "Insufficient Cash"
+                    : "Complete"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

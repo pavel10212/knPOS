@@ -133,16 +133,14 @@ const initializePrinter = async (forceReconnect = false) => {
 
 // Helper function to ensure printer is connected before printing with retry logic
 const ensurePrinterConnection = async () => {
-  if (!isPrinterConnected || connectionAttempts > 0) {
-    console.log("Printer not connected or had previous connection issues, attempting to reconnect...");
-    // If we've tried too many times, force a full reconnection
-    const forceReconnect = connectionAttempts >= MAX_RECONNECT_ATTEMPTS;
-    const connected = await initializePrinter(forceReconnect);
-    
-    if (!connected) {
-      console.error("Could not establish printer connection after attempts");
-      throw new Error("Could not establish printer connection");
-    }
+  // Always attempt to reconnect for each print job to ensure reliability
+  console.log("Ensuring printer connection for new print job...");
+  // Force reconnect to avoid stale connection issues
+  const connected = await initializePrinter(true);
+  
+  if (!connected) {
+    console.error("Could not establish printer connection after attempts");
+    throw new Error("Could not establish printer connection");
   }
   return true;
 };
@@ -269,7 +267,7 @@ const printQRCode = async (base64Data, tableNumber) => {
     const BOLD_ON = COMMANDS.TEXT_FORMAT.TXT_BOLD_ON;
     const BOLD_OFF = COMMANDS.TEXT_FORMAT.TXT_BOLD_OFF;
 
-    await safePrintText(`${CENTER}${BOLD_ON}KhinKali House${BOLD_OFF}\n`);
+    await safePrintText(`${CENTER}${BOLD_ON}Hinkali House${BOLD_OFF}\n`);
     await safePrintText(`${CENTER}${BOLD_ON}QR Code Details${BOLD_OFF}\n\n`);
     await safePrintText(`${CENTER}Table ${tableNumber}\n\n`);
     await safePrintImageBase64(base64Data, {
@@ -304,7 +302,7 @@ const printReceipt = async (orderDetails, paymentDetails) => {
     const BOLD_OFF = COMMANDS.TEXT_FORMAT.TXT_BOLD_OFF;
 
     // Print header
-    await safePrintText(`${CENTER}${BOLD_ON}KhinKali House${BOLD_OFF}\n`);
+    await safePrintText(`${CENTER}${BOLD_ON}Hinkali House${BOLD_OFF}\n`);
     await safePrintText(`${CENTER}================================\n\n`);
 
     // Print order details
@@ -335,6 +333,13 @@ const printReceipt = async (orderDetails, paymentDetails) => {
         `Discount (${
           paymentDetails.discount
         }%): -$${paymentDetails.discountAmount.toFixed(2)}\n`
+      );
+    }
+
+    // Add service charge to the receipt
+    if (paymentDetails.serviceCharge > 0) {
+      await safePrintText(
+        `Service Charge (${paymentDetails.serviceChargeRate}%): $${paymentDetails.serviceCharge.toFixed(2)}\n`
       );
     }
     

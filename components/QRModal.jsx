@@ -15,8 +15,6 @@ const QRModal = ({ visible, onClose, table_num }) => {
     const tables = useSharedStore((state) => state.tables);
     const updateTableStatus = tableStore((state) => state.updateTableStatus);
 
-    console.log('QRmodal value:', qrValue);
-
     useEffect(() => {
         initializePrinter().catch(err => {
             console.error('Printer initialization failed:', err);
